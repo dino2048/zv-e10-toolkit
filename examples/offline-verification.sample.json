@@ -1,0 +1,33 @@
+{
+  "_note": "Illustrative output of zve10_verify.py slices. Hashes are placeholders.",
+  "read1": "nflasha.read1.bin",
+  "read2": "nflasha.read2.bin",
+  "layout": "partitions.sample.tsv",
+  "partitions": [
+    {
+      "name": "nflasha7",
+      "offset": 171966464,
+      "bytes": 8388608,
+      "read1_sha256": "7777777777777777777777777777777777777777777777777777777777777777",
+      "read2_sha256": "7777777777777777777777777777777777777777777777777777777777777777",
+      "identical": true
+    },
+    {
+      "name": "nflasha2",
+      "offset": 8388608,
+      "bytes": 20971520,
+      "read1_sha256": "8888888888888888888888888888888888888888888888888888888888888888",
+      "read2_sha256": "9999999999999999999999999999999999999999999999999999999999999999",
+      "identical": false
+    }
+  ],
+  "different_bytes": 4,
+  "different_sectors": [
+    {
+      "offset": 8389120,
+      "sector": 16385,
+      "different_bytes": 4,
+      "partitions": ["nflasha2"]
+    }
+  ]
+}

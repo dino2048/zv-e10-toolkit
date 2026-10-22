@@ -1,0 +1,18 @@
+# Local environment
+.venv/
+vendor/
+__pycache__/
+*.py[cod]
+.DS_Store
+
+# Camera data and backups: never commit
+backups/
+session/
+*.bin
+*.img
+*.elf
+*.so
+*.part
+*.tar.gz
+*.zip
+logs/

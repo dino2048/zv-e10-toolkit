@@ -1,0 +1,71 @@
+{
+  "_note": "Illustrative schema only. Values are redacted placeholders, not a real device dump.",
+  "scope": "Two reads of the Linux-exposed user area and B0/B1; host files only; no camera writes/uploads/mounts",
+  "reads": [
+    {
+      "device": "/dev/nflasha",
+      "iteration": 1,
+      "expected_bytes": 1954545664,
+      "file": "nflasha.read1.bin",
+      "complete": true,
+      "response": 1,
+      "bytes": 1954545664,
+      "seconds": 151.69,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "host_reread_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "chunk_sha256_1MiB": [
+        "1111111111111111111111111111111111111111111111111111111111111111",
+        "2222222222222222222222222222222222222222222222222222222222222222"
+      ]
+    },
+    {
+      "device": "/dev/nflasha",
+      "iteration": 2,
+      "expected_bytes": 1954545664,
+      "file": "nflasha.read2.bin",
+      "complete": true,
+      "response": 1,
+      "bytes": 1954545664,
+      "seconds": 154.58,
+      "sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+      "host_reread_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+      "chunk_sha256_1MiB": [
+        "1111111111111111111111111111111111111111111111111111111111111111",
+        "4444444444444444444444444444444444444444444444444444444444444444"
+      ]
+    },
+    {
+      "device": "/dev/nflashaB0",
+      "iteration": 1,
+      "expected_bytes": 4194304,
+      "file": "nflashaB0.read1.bin",
+      "complete": true,
+      "response": 1,
+      "bytes": 4194304,
+      "seconds": 0.33,
+      "sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+      "host_reread_sha256": "5555555555555555555555555555555555555555555555555555555555555555"
+    }
+  ],
+  "metadata": [
+    {
+      "name": "partitions",
+      "command": "busybox cat /proc/partitions",
+      "exit_code": 0,
+      "output": " 252        0    1908736 nflasha\n"
+    }
+  ],
+  "comparisons": {
+    "nflasha": {
+      "identical": false,
+      "differing_1MiB_chunks": [1]
+    },
+    "nflashaB0": {
+      "identical": true,
+      "differing_1MiB_chunks": []
+    }
+  },
+  "completed": true,
+  "terminal_closed": true,
+  "service_returned": true
+}

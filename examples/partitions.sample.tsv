@@ -1,0 +1,20 @@
+# Partition layout for zve10_verify.py slices.
+# Columns: name offset size (decimal or 0x hex).
+# Observed on firmware 30110_05.2025031501; verify against /proc/partitions
+# and /sys/class/block before relying on it.
+nflasha1   65536      8323072
+nflasha2   8388608    20971520
+nflasha3   29360128   50331648
+nflasha4   79691776   12582912
+nflasha5   92274688   62914560
+nflasha6   155189248  16777216
+nflasha7   171966464  8388608
+nflasha10  180355072  12582912
+nflasha11  192937984  524288000
+nflasha12  717225984  41943040
+nflasha13  759169024  4194304
+nflasha15  763363328  314572800
+nflasha16  1077936128 146800640
+nflasha17  1224736768 104857600
+nflasha18  1329594368 20971520
+nflasha23  1350565888 67108864

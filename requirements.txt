@@ -1,0 +1,15 @@
+# Runtime dependencies for the Python tools.
+# Sony-PMCA-RE is not a PyPI package; scripts/setup.sh clones it into vendor/.
+# These mirror the Sony-PMCA-RE runtime imports used by pmca.commands.usb,
+# without its build-only tools (pyinstaller).
+pyusb>=1.2.1
+pycryptodomex>=3.20
+asn1crypto
+AxmlParserPY==0.0.4
+certifi
+PyYAML
+tlslite-ng
+six
+pycparser==2.17
+comtypes; sys_platform == "win32"
+pywin32; sys_platform == "win32"

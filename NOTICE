@@ -1,0 +1,26 @@
+Third-party notices
+===================
+
+Sony-PMCA-RE
+------------
+This project depends on Sony-PMCA-RE for the USB service-mode transport.
+It is not bundled in this repository; scripts/setup.sh clones it into
+vendor/Sony-PMCA-RE, or you can install it yourself.
+
+  Copyright (c) 2015 ma1co
+  MIT License
+  https://github.com/ma1co/Sony-PMCA-RE
+
+No Sony firmware, firmware extracts, boot ROM dumps, camera binaries,
+service software, certificates, Sony Senser authentication key tables,
+device data, or backup images are included in this repository.
+
+Related projects referenced in the documentation
+------------------------------------------------
+- YuuLuo/a7c2-service-preload
+- leogenot/sony-a7iv-feature-research
+
+These are cited as prior public work. Their code is not copied into this
+repository. Check their respective repositories for license terms.
+
+This project is not affiliated with or endorsed by Sony.
