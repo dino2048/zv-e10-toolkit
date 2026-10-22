@@ -11,6 +11,7 @@ session/
 *.bin
 *.img
 *.elf
+!payload/read_page.elf
 *.so
 *.part
 *.tar.gz

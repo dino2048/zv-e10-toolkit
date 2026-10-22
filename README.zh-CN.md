@@ -2,18 +2,19 @@
 
 **简体中文** | [English](README.md)
 
-面向 Sony ZV-E10 的只读备份与服务模式工具箱。
+面向 Sony ZV-E10 的备份、服务模式与 BootROM 工具箱。
 在固件 `30110_05.2025031501`、macOS 上实测。
 
 ## 工具
 
-| 工具 | 用途 | 是否写相机 |
+| 工具 | 用途 | 相机端影响 |
 |---|---|---|
-| `tools/zve10_backup_raw.py` | 读取内核暴露的用户区和 B0/B1，各读两遍，保存原始镜像和哈希 | 否 |
-| `tools/zve10_backup_files.py` | 通过服务终端复制指定普通文件 | 否 |
-| `tools/zve10_verify.py` | 离线校验 manifest、`SHA256SUMS` 和分区切片 | 否 |
-| `tools/zve10_terminal_server.py` + 客户端 | 服务 shell；默认只读白名单 | 默认否 |
-| `tools/zve10_read_file_jiritsu.py` | 可选的 Jiritsu `GET_FILE` 只读文件读取 | 否 |
+| `tools/zve10_backup_raw.py` | 读取内核暴露的用户区和 B0/B1，各读两遍，保存原始镜像和哈希 | 无 |
+| `tools/zve10_backup_files.py` | 通过服务终端复制指定普通文件 | 无 |
+| `tools/zve10_verify.py` | 离线校验 manifest、`SHA256SUMS` 和分区切片 | 无 |
+| `tools/zve10_terminal_server.py` + 客户端 | 服务 shell；默认只读白名单 | 默认无；可选写模式 |
+| `tools/zve10_read_file_jiritsu.py` | 可选的 Jiritsu `GET_FILE` 文件读取 | 无 |
+| `tools/zve10_bootrom_dump.py` | 通过 `/dev/mem` 两遍读取 BootROM（实验性） | `/tmp_bt` tmpfs 中的临时助手 |
 
 ## 安装
 
@@ -37,6 +38,8 @@
 
 ./scripts/run_terminal.sh
 .venv/bin/python tools/zve10_terminal_client.py
+
+./scripts/run_bootrom_dump.sh --owner-authorized-exec
 ```
 
 完整 shell：
@@ -64,12 +67,14 @@ backups/zve10-raw-emmc-<时间戳>/
 - 原始镜像是 Linux 驱动暴露的内容，不是物理芯片转储；不含 RPMB、OTP/eFuse 或隐藏区域。
 - 不是原子快照：rw 分区在两遍读取之间可能变化。两份镜像都会保留，差异如实报告。
 - 要求相机能启动到接受服务会话的程度。
+- BootROM 转储只覆盖已验证的 `0xffff0000–0xffff5fff`，并从 tmpfs 执行一个临时助手。
 - 只在上述固件实测；设备路径和容量是 ZV-E10 专用的。
 
 ## 说明
 
 - 仅用于你拥有或有权维修的设备。
 - 仓库不包含 Sony 固件、二进制、服务密钥表或设备数据。
+- BootROM 转储属于 Sony 固件内容。请私密保存，不要提交。
 - 服务模式是未公开的厂商接口，当地法律可能限制使用。这不是法律意见。
 
 ## 文档
@@ -79,6 +84,7 @@ backups/zve10-raw-emmc-<时间戳>/
 - [FileControl 读取路径](docs/filecontrol-read.zh-CN.md)（含可选的 Jiritsu 路径）
 - [备份方法](docs/backup-method.zh-CN.md)
 - [校验](docs/verification.zh-CN.md)
+- [BootROM dump](docs/bootrom-dump.zh-CN.md)
 
 ## 致谢
 

@@ -2,18 +2,19 @@
 
 [简体中文](README.zh-CN.md) | **English**
 
-Read-only backup and service-mode toolkit for the Sony ZV-E10.
+Backup, service-mode, and BootROM dump toolkit for the Sony ZV-E10.
 Tested on firmware `30110_05.2025031501` with macOS.
 
 ## Tools
 
-| Tool | Purpose | Writes camera |
+| Tool | Purpose | Camera side effect |
 |---|---|---|
-| `tools/zve10_backup_raw.py` | Read the Linux-visible user area and B0/B1 twice; save raw images and hashes | No |
-| `tools/zve10_backup_files.py` | Copy selected ordinary files over the service terminal | No |
-| `tools/zve10_verify.py` | Verify manifests, `SHA256SUMS`, and partition slices offline | No |
-| `tools/zve10_terminal_server.py` + client | Service shell; read-only allow-list by default | No by default |
-| `tools/zve10_read_file_jiritsu.py` | Optional read-only Jiritsu `GET_FILE` reader | No |
+| `tools/zve10_backup_raw.py` | Read the Linux-visible user area and B0/B1 twice; save raw images and hashes | None |
+| `tools/zve10_backup_files.py` | Copy selected ordinary files over the service terminal | None |
+| `tools/zve10_verify.py` | Verify manifests, `SHA256SUMS`, and partition slices offline | None |
+| `tools/zve10_terminal_server.py` + client | Service shell; read-only allow-list by default | None by default; write mode optional |
+| `tools/zve10_read_file_jiritsu.py` | Optional Jiritsu `GET_FILE` reader | None |
+| `tools/zve10_bootrom_dump.py` | Two-pass BootROM read through `/dev/mem` (experimental) | Temporary helper in `/tmp_bt` tmpfs |
 
 ## Install
 
@@ -39,6 +40,8 @@ Requires Python 3.10+, `libusb`, the camera in USB mass-storage mode, and about
 
 ./scripts/run_terminal.sh
 .venv/bin/python tools/zve10_terminal_client.py
+
+./scripts/run_bootrom_dump.sh --owner-authorized-exec
 ```
 
 Full shell:
@@ -69,12 +72,16 @@ disk and hashed again before being renamed into place.
 - Not an atomic snapshot: read-write partitions can change between the two
   passes. Both images are kept and differences are reported.
 - Requires the camera to boot far enough to accept a service session.
+- The BootROM dump is limited to the proven `0xffff0000–0xffff5fff` range and
+  executes a temporary helper from tmpfs.
 - Only the firmware above is tested; device paths and sizes are ZV-E10-specific.
 
 ## Notes
 
 - Use only on hardware you own or are authorized to service.
 - No Sony firmware, binaries, service key tables, or device data are included.
+- BootROM dumps are Sony firmware content. Keep them private and do not commit
+  them.
 - Service-mode access is an undocumented vendor interface; local law may
   restrict it. This is not legal advice.
 
@@ -85,6 +92,7 @@ disk and hashed again before being renamed into place.
 - [FileControl read path](docs/filecontrol-read.md) (includes the optional Jiritsu path)
 - [Backup method](docs/backup-method.md)
 - [Verification](docs/verification.md)
+- [BootROM dump](docs/bootrom-dump.md)
 
 ## Credits
 
