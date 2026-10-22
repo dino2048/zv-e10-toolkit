@@ -1,56 +1,47 @@
 # Root terminal
 
-After service authentication, the camera can expose a debug terminal. In the
-observed ZV-E10 firmware the shell runs with Uid/Gid 0. This is a root shell,
-but it is also a vendor debug facility, not a memory-corruption exploit.
+After service authentication, the camera can expose a debug terminal. On the
+tested ZV-E10 firmware the shell runs with Uid/Gid 0.
 
-## How the terminal is opened
+## Opening and closing
 
-- `camera.setTerminalEnable(True)` enables the terminal.
-- Output is read with `dev.readTerminal()`; input is written with
-  `dev.writeTerminal(...)`.
-- `setTerminalEnable(False)` closes it. The server always does this in a
-  `finally` block, including on errors.
+- `camera.setTerminalEnable(True)` enables it.
+- `dev.readTerminal()` reads output; `dev.writeTerminal(...)` writes input.
+- `setTerminalEnable(False)` closes it; the server always does this in a
+  `finally` block.
 
-The toolkit wraps each command with unique begin/end markers so that replies
-can be attributed reliably even when output is fragmented or late.
+Each command is wrapped with unique begin/end markers so replies can be
+attributed even when output is fragmented.
 
 ## Root identity
 
-The service shell reports `Uid: 0 0 0 0` and `Gid: 0 0 0 0` in
-`/proc/$$/status`. `busybox id` may be missing from the camera's busybox build;
-that does not mean the shell is unprivileged.
+`/proc/$$/status` reports `Uid: 0 0 0 0` and `Gid: 0 0 0 0`. The camera's
+busybox build may not include the `id` applet; that does not change the
+privilege level.
 
 ## Default mode: read-only
 
-The terminal server is read-only unless the owner passes
-`--owner-authorized-write`. In read-only mode:
+Without `--owner-authorized-write`, only a small allow-list is accepted:
+`cat`, `ls`, `find`, `ps`, `du`, `df`, `grep`, `head`, `tail`, `wc`,
+`sha256sum`, `md5sum`, `stat`, `readlink`, `pwd`, `uptime`, `date`, `uname`,
+`free`, `echo`, `id`, `dmesg` (optionally prefixed with `busybox`).
 
-- only a small allow-list is accepted: `cat`, `ls`, `find`, `ps`, `du`, `df`,
-  `grep`, `head`, `tail`, `wc`, `sha256sum`, `md5sum`, `stat`, `readlink`,
-  `pwd`, `uptime`, `date`, `uname`, `free`, `echo`, `id`, `dmesg` (optionally
-  prefixed with `busybox`);
-- shell metacharacters are refused outside single quotes;
-- `/dev/` access is refused;
-- `find` action flags such as `-exec`, `-delete`, and `-fprint` are refused.
+Also refused in read-only mode:
 
-Commands are single-line, ASCII, and limited to 200 characters. The session
-times out after 10 idle minutes.
+- shell metacharacters outside single quotes;
+- `/dev/` access;
+- `find` action flags such as `-exec`, `-delete`, `-fprint`.
+
+Commands are single-line ASCII, up to 200 characters. The session ends after
+10 idle minutes.
 
 ## Full shell
 
 `--owner-authorized-write` lifts the allow-list for that session. The
 catastrophic-command denylist remains: filesystem/partition tools, block-device
 writes, recursive removal, mount operations, kernel modules, and power
-commands are still refused. `--allow-module-swap` additionally permits
-`insmod`/`rmmod` and requires write mode.
+commands. `--allow-module-swap` additionally permits `insmod`/`rmmod` and
+requires write mode.
 
-These checks are **guardrails, not a security boundary**. A determined user
-with a full shell can still damage the camera. The server is meant for the
-owner of the device, not as a sandbox for untrusted users.
-
-## What this tool does not do
-
-- It does not read eMMC images; use `zve10_backup_raw.py`.
-- It does not write block devices or restore backups.
-- It does not persist anything across a reboot by itself.
+These checks are guardrails, not a security boundary. A full shell can still
+damage the camera; it is intended for the device owner.

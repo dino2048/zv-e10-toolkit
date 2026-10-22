@@ -9,7 +9,7 @@ This is a separate, experimental path from the FileControl backup tools:
 
 The path traversal escapes the workspace prefix so that absolute paths can be
 read.  This technique is documented in public prior work (see
-docs/related-work.md); it is not used by the backup tools.
+docs/filecontrol-read.md); it is not used by the backup tools.
 
 Read-only: GET_FILE is the only camera command issued here, apart from the
 version check and service-session setup.  No writes, uploads, or mounts.
