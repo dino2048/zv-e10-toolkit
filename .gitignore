@@ -17,3 +17,13 @@ session/
 *.tar.gz
 *.zip
 logs/
+
+# Fastboot build outputs and keep the Pico log directory
+!fastboot/build/fastboot.bin
+!fastboot/stage2/build/stage2.bin
+!fastboot/pico/logs/
+!fastboot/pico/logs/.gitkeep
+*.o
+*.map
+*.uf2
+build-v*/

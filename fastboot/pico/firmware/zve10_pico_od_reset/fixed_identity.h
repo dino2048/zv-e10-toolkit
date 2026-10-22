@@ -1,0 +1,2 @@
+#pragma once
+#define LED_STREAM_SHA256 "ae6e94342b7ddcacc06600f62cffa71cf0ea332132717330d63148353109a9c2"

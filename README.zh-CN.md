@@ -2,7 +2,7 @@
 
 **简体中文** | [English](README.md)
 
-面向 Sony ZV-E10 的备份、服务模式与 BootROM 工具箱。
+面向 Sony ZV-E10 的备份、服务模式、BootROM 与 fastboot/eMMC 工具箱。
 在固件 `30110_05.2025031501`、macOS 上实测。
 
 ## 工具
@@ -15,6 +15,17 @@
 | `tools/zve10_terminal_server.py` + 客户端 | 服务 shell；默认只读白名单 | 默认无；可选写模式 |
 | `tools/zve10_read_file_jiritsu.py` | 可选的 Jiritsu `GET_FILE` 文件读取 | 无 |
 | `tools/zve10_bootrom_dump.py` | 通过 `/dev/mem` 两遍读取 BootROM（实验性） | `/tmp_bt` tmpfs 中的临时助手 |
+| `fastboot/` | Pico 注入的 fastboot payload 和 stage2 eMMC 读取（手动，需要硬件） | SRAM payload；不写 eMMC |
+
+## Fastboot / eMMC（手动）
+
+`fastboot/` 是另一条硬件路径：Pico BootROM 串口注入 → DWC3 fastboot payload →
+stage2 eMMC 块读取。需要 Pico、470Ω 复位线、电池处理和手动构建，不属于 Python 工具链。
+
+- [fastboot/README.md](fastboot/README.md)
+- [硬件与接线](fastboot/docs/hardware.md)
+- [USB 成功日志](fastboot/docs/usb-success.md)
+- [eMMC 成功日志](fastboot/docs/emmc-success.md)
 
 ## 安装
 
@@ -85,11 +96,13 @@ backups/zve10-raw-emmc-<时间戳>/
 - [备份方法](docs/backup-method.zh-CN.md)
 - [校验](docs/verification.zh-CN.md)
 - [BootROM dump](docs/bootrom-dump.zh-CN.md)
+- [Fastboot / eMMC](fastboot/README.md)
 
 ## 致谢
 
 - [ma1co/Sony-PMCA-RE](https://github.com/ma1co/Sony-PMCA-RE)（MIT）——USB 服务模式传输与认证。
 - [YuuLuo/a7c2-service-preload](https://github.com/YuuLuo/a7c2-service-preload) 与 [leogenot/sony-a7iv-feature-research](https://github.com/leogenot/sony-a7iv-feature-research)——服务/Jiritsu 路径的公开前置工作。
+- ILCE-7M4-RE 的 fastboot payload 与外部 zve10-qemu 参考——`fastboot/` 里的移植来源。
 
 与 Sony 无关，也未获 Sony 认可。
 

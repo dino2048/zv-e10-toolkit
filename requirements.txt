@@ -13,3 +13,4 @@ six
 pycparser==2.17
 comtypes; sys_platform == "win32"
 pywin32; sys_platform == "win32"
+pyserial>=3.5

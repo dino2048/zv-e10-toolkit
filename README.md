@@ -2,7 +2,7 @@
 
 [简体中文](README.zh-CN.md) | **English**
 
-Backup, service-mode, and BootROM dump toolkit for the Sony ZV-E10.
+Backup, service-mode, BootROM dump, and fastboot/eMMC toolkit for the Sony ZV-E10.
 Tested on firmware `30110_05.2025031501` with macOS.
 
 ## Tools
@@ -15,6 +15,18 @@ Tested on firmware `30110_05.2025031501` with macOS.
 | `tools/zve10_terminal_server.py` + client | Service shell; read-only allow-list by default | None by default; write mode optional |
 | `tools/zve10_read_file_jiritsu.py` | Optional Jiritsu `GET_FILE` reader | None |
 | `tools/zve10_bootrom_dump.py` | Two-pass BootROM read through `/dev/mem` (experimental) | Temporary helper in `/tmp_bt` tmpfs |
+| `fastboot/` | Pico-injected fastboot payload and stage2 eMMC read (manual, hardware required) | SRAM payload; no eMMC writes |
+
+## Fastboot / eMMC (manual)
+
+`fastboot/` is a separate hardware path: Pico BootROM serial injection → DWC3
+fastboot payload → stage2 eMMC block read. It needs a Pico, a 470Ω reset line,
+battery handling, and a manual build; it is not part of the Python tools.
+
+- [fastboot/README.md](fastboot/README.md)
+- [Hardware and wiring](fastboot/docs/hardware.md)
+- [USB success log](fastboot/docs/usb-success.md)
+- [eMMC success log](fastboot/docs/emmc-success.md)
 
 ## Install
 
@@ -93,6 +105,7 @@ disk and hashed again before being renamed into place.
 - [Backup method](docs/backup-method.md)
 - [Verification](docs/verification.md)
 - [BootROM dump](docs/bootrom-dump.md)
+- [Fastboot / eMMC](fastboot/README.md)
 
 ## Credits
 
@@ -101,6 +114,8 @@ disk and hashed again before being renamed into place.
 - [YuuLuo/a7c2-service-preload](https://github.com/YuuLuo/a7c2-service-preload)
   and [leogenot/sony-a7iv-feature-research](https://github.com/leogenot/sony-a7iv-feature-research)
   — public prior work on the service/Jiritsu paths.
+- ILCE-7M4-RE fastboot payload and external zve10-qemu references — the
+  fastboot/eMMC port in `fastboot/`.
 
 Not affiliated with or endorsed by Sony.
 
