@@ -21,7 +21,8 @@ Tested on firmware `30110_05.2025031501` with macOS.
 
 `fastboot/` is a separate hardware path: Pico BootROM serial injection → DWC3
 fastboot payload → stage2 eMMC block read. It needs a Pico, a 470Ω reset line,
-battery handling, and a manual build; it is not part of the Python tools.
+CC1/CC2 tied together with a 5.1kΩ pull-down, the battery left in, and a
+manual build; it is not part of the Python tools.
 
 - [fastboot/README.md](fastboot/README.md)
 - [Hardware and wiring](fastboot/docs/hardware.md)

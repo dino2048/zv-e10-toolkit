@@ -71,6 +71,6 @@ backups/zve10-bootrom-<timestamp>/
 ## Alternative: BootROM serial injection
 
 The project also has a confirmed UART injection path (RP2040 → camera D−,
-battery insertion, `1 long + 7 short` = payload execution in SRAM). That path
-works before Linux boots, but it needs hardware wiring and a second-stage
-loader. It is not part of this repository.
+GP27 reset pulse, battery stays in, `1 long + 7 short` = payload execution in
+SRAM). That path works before Linux boots; see
+[fastboot/README.md](../fastboot/README.md).

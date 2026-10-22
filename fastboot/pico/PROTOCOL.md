@@ -16,8 +16,12 @@
 | 记录间隔 | 14.4 ms；组内不得有 >293.6 µs 静默 |
 | 一组总时长 | 同族文档 `<1.45 s`；本机实测 8 KB/2.17 s 通过、10 KB/2.65 s 返回 `0x2004`，实际上限约 **8–10 KB** |
 
-发送端实测：RP2040 Pico，PIO 位翻转 + DMA，open-drain；固件
-`zve10_pico_od`（v7），主机 `inject_fixed.py`。
+发送端实测：RP2040 Pico，PIO 位翻转 + DMA，open-drain；当前使用
+`zve10_pico_od_reset`（v15）和 `inject_payload.py`，GP27 复位、电池保持。
+v7 + `inject_fixed.py` 是旧的拔电池冷启动方法。
+
+接线：GP28 → D−，GP27 → 470Ω → D+，5V → VBUS，GND 共地，
+CC1/CC2 并接后经 5.1kΩ 下拉到 GND；详见 [../docs/hardware.md](../docs/hardware.md)。
 
 ## 2. 记录格式
 

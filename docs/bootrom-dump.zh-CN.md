@@ -61,4 +61,4 @@ backups/zve10-bootrom-<时间戳>/
 
 ## 替代路径：BootROM 串口注入
 
-项目里还有一条已确认的 UART 注入路径（RP2040 → 相机 D−，插电池，**1 长 + 7 短** 表示 payload 在 SRAM 中执行）。这条路径在 Linux 启动之前就能用，但需要硬件接线和二级 loader，不在本仓库中。
+项目里还有一条已确认的 UART 注入路径（RP2040 → 相机 D−，GP27 复位，电池保持，**1 长 + 7 短** 表示 payload 在 SRAM 中执行）。这条路径在 Linux 启动之前就能用；见 [fastboot/README.md](../fastboot/README.md)。
