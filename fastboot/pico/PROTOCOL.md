@@ -23,7 +23,7 @@ v7 + `inject_fixed.py` 是旧的拔电池冷启动方法。
 接线：USB-C 公头转 24pin 小板；GP28 → D−：A7（A 组，可选串 470Ω），
 GP27 → 470Ω → D+：A6（A 组）；A6/A7 不行时整组换 B7/B6。
 5V → VBUS（一根），GND（一根），CC1/CC2 并接后 5.1kΩ 下拉到 GND；
-GP29 不接。详见 [../docs/hardware.md](../docs/hardware.md)。
+GP29 不接。详见 [../docs/hardware.zh-CN.md](../docs/hardware.zh-CN.md)。
 
 ## 2. 记录格式
 

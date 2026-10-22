@@ -23,7 +23,7 @@
 stage2 eMMC 块读取。需要 Pico、470Ω 复位线、CC1/CC2 并接后 5.1kΩ 下拉、电池保持和手动构建，不属于 Python 工具链。
 
 - [fastboot/README.md](fastboot/README.md)
-- [硬件与接线](fastboot/docs/hardware.md)
+- [硬件与接线](fastboot/docs/hardware.zh-CN.md)
 - [USB 成功日志](fastboot/docs/usb-success.md)
 - [eMMC 成功日志](fastboot/docs/emmc-success.md)
 

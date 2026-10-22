@@ -1,73 +1,71 @@
-# 硬件与接线
+# Hardware and wiring
 
-这条链路需要 RP2040 Pico（树莓派 Pico）、USB-C 公头转 24pin 小板、固定接线和电池/复位时序。
+[**English**](hardware.md) | [简体中文](hardware.zh-CN.md)
 
-## 必需
+## Wiring diagram
 
-- ZV-E10；
-- RP2040 Pico；
-- **USB-C 公头转 24pin 小板**（A/B 两面都引出）；
-- 470Ω 电阻（复位线必需；D− 可选）；
-- 相机电池。
+```
+Camera USB-C receptacle
+      ↑ plugged in
+USB-C male plug (24-pin breakout, both A and B sides exposed)
+      │
+      ├─ A7  D− ──[optional 470Ω]── GP28   Pico serial TX (open-drain)
+      ├─ A6  D+ ── 470Ω ────────── GP27   reset
+      ├─ A5  CC1 ─┐
+      ├─ B5  CC2 ─┴─ 5.1kΩ ── GND
+      ├─ VBUS (any one of A4/A9/B4/B9) ── Pico 5V
+      └─ GND  (any one of A1/A12/B1/B12) ── Pico GND
+```
 
-## 引脚
+Note: **if A6/A7 do not work, try B6/B7.**
 
-USB-C 数据脚分两组，整组使用：
+## Notes
 
-- **A 组：A7 = D−，A6 = D+**；
-- **B 组：B7 = D−，B6 = D+**。
+- The camera side is a USB-C receptacle; a male 24-pin breakout is required
+  to reach the pins.
+- During injection the camera USB-C goes to the breakout, not to the PC.
+- D− is open-drain; do not use a 3.3V push-pull driver.
+- GP28 and GP27 are not interchangeable.
+- GP29 (MULTI_RX) is not connected.
+- 470Ω: required on GP27 → D+; optional on GP28 → D−.
+- VBUS and GND: one wire each is enough; the camera ties the pins internally.
 
-A6/A7 是一组，B6/B7 是另一组；切换时**整组换**，不要 A7 配 B6 这样混用。
+## Battery and reset
 
-相机侧是 USB-C 母座，24pin 小板是公头，插进相机后才能接触这些引脚。
+- Battery stays in; the camera boots normally.
+- The script enables the carrier, sends a 10 µs low pulse on GP27 to reset the
+  camera, then replays the record group.
+- **No battery removal is needed with reset.** Removing the battery to cold-boot
+  is the legacy v7 method and is not used now.
 
-## 接线
+## Switching the cable to the PC
 
-| Pico | 24pin 小板 / 相机 USB-C | 说明 |
-|---|---|---|
-| **GP28** | D−：A7（A 组） | 串口数据；直连；**可选**串 470Ω 保护 |
-| **GP27** | D+：A6（A 组），串 470Ω | 复位；**必须**串 470Ω |
-| 5V | VBUS（A4/A9/B4/B9 任一根） | 相机内部已并联，接一根即可 |
-| GND | GND（A1/A12/B1/B12 任一根） | 相机内部已并联，接一根即可 |
-| — | CC1（A5）+ CC2（B5） | 连在一起，经 5.1kΩ 下拉到 GND |
-
-- 注入期间相机 USB-C 接 24pin 小板，不接电脑；
-- 先用 A 组 A7/A6；如果不行，**整组换到 B 组 B7/B6**（D− = B7，D+ = B6）；
-- 也可以翻转 USB-C 方向再试；
-- D− 使用 open-drain，不要 3.3V 推挽；
-- GP28 和 GP27 的功能不能互换；
-- GP29（MULTI_RX）当前不接。
-
-## 电池与复位
-
-- 电池插着，相机正常开机；
-- 脚本先开载波，再发 GP27 10 µs 低脉冲复位相机，然后整组重放；
-- **有复位后不需要拔电池**；拔电池冷启动是旧的 v7 方法，当前不用。
-
-## 换线到电脑
-
-- payload 检测 VBUS 低 → 高；看到长闪后把 24pin 小板从相机拔下，换普通 USB-C 线接到电脑；
-- Pico 5V 和 Mac 5V 会在相机 VBUS 上顶在一起，Pico 可能从 Mac 掉线，不影响已经在运行的 payload。
+- The payload detects VBUS low → high. After the long flash, unplug the 24-pin
+  breakout from the camera and connect a normal USB-C cable to the PC.
+- Pico 5V and Mac 5V can back-feed through the camera VBUS; the Pico may drop
+  off the Mac. This does not affect the already running payload.
 
 ## LED
 
-- 一次长闪（0.4 s）：payload 活着；
-- 短脉冲计数：USB 时钟/PHY → DWC3 → EP0 配置 → 等主机；
-- 之后每 2 秒一次短脉冲：在等主机枚举；
-- 停在第 N 个短脉冲：对应步骤没有返回。
+- One long flash (0.4 s): payload is alive.
+- Short pulse count: USB clock/PHY → DWC3 → EP0 configuration → waiting for host.
+- One short pulse every 2 s afterwards: waiting for host enumeration.
+- Stopping after the Nth short pulse: the corresponding step did not return.
 
-## 停止 / 恢复正常启动
+## Stop / return to normal boot
 
-从仓库根目录：
+From the repository root:
 
 ```sh
 python3 fastboot/pico/reset_only.py --port /dev/cu.usbmodemXXXX
 ```
 
-发一次 GP27 复位、关闭载波，相机回到正常启动，不用拆电池。也可以直接断电/取电池：
-payload 在 SRAM，易失。
+One GP27 reset, carrier off, and the camera returns to normal boot without
+removing the battery. Power-off or battery removal also works: the payload
+lives in SRAM and is volatile.
 
-## 边界
+## Boundaries
 
-- 这是 BootROM 串口启动，不是运行时漏洞；需要专用接线和复位时序。
-- 只写 SRAM；不写 eMMC、SD 或 OTP。
+- This is BootROM serial boot, not a runtime exploit; it needs dedicated wiring
+  and reset timing.
+- It writes SRAM only; no eMMC, SD, or OTP writes.
