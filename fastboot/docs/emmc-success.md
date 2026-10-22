@@ -52,7 +52,7 @@ status 0
 ...
 ```
 
-与外部 zve10-qemu 参考的分区表完全一致（start 字段是**字节**
+与 [cokeenet/zve10-qemu](https://github.com/cokeenet/zve10-qemu) 参考的分区表完全一致（start 字段是**字节**
 偏移，不是扇区；CMD17 要除以 512）。
 
 ## 分区数据是明文

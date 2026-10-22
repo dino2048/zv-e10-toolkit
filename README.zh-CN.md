@@ -98,11 +98,21 @@ backups/zve10-raw-emmc-<时间戳>/
 - [BootROM dump](docs/bootrom-dump.zh-CN.md)
 - [Fastboot / eMMC](fastboot/README.md)
 
-## 致谢
+## 引用与致谢
 
-- [ma1co/Sony-PMCA-RE](https://github.com/ma1co/Sony-PMCA-RE)（MIT）——USB 服务模式传输与认证。
-- [YuuLuo/a7c2-service-preload](https://github.com/YuuLuo/a7c2-service-preload) 与 [leogenot/sony-a7iv-feature-research](https://github.com/leogenot/sony-a7iv-feature-research)——服务/Jiritsu 路径的公开前置工作。
-- ILCE-7M4-RE 的 fastboot payload 与外部 zve10-qemu 参考——`fastboot/` 里的移植来源。
+已发布工具实际使用：
+
+- [ma1co/Sony-PMCA-RE](https://github.com/ma1co/Sony-PMCA-RE)（MIT）——USB 服务模式传输与认证；`scripts/setup.sh` 会克隆。
+- [DavidBuchanan314/ILCE-7M4-RE](https://github.com/DavidBuchanan314/ILCE-7M4-RE)——`fastboot/` 里 fastboot/UART/eMMC 移植的来源。
+- [cokeenet/zve10-qemu](https://github.com/cokeenet/zve10-qemu)（MIT）——UART 启动协议、分区表和硬件参考。
+- [YuuLuo/a7c2-service-preload](https://github.com/YuuLuo/a7c2-service-preload)——Jiritsu 路径穿越 / 服务模式前置工作。
+- [leogenot/sony-a7iv-feature-research](https://github.com/leogenot/sony-a7iv-feature-research)（MIT）——Jiritsu 只读 dump 方法。
+
+方法/研究参考（发布的工具不依赖）：
+
+- [xyzhangxin/sony-a6700-powerful](https://github.com/xyzhangxin/sony-a6700-powerful)（GPL-3.0）——Pico/CC 方法参考。
+- [ma1co/OpenMemories-Platform](https://github.com/ma1co/OpenMemories-Platform)（MIT）——`/dev/mem` BootROM dump 的 `BOOTROM_BASE`。
+- [ma1co/fwtool.py](https://github.com/ma1co/fwtool.py)（MIT）与 [DavidBuchanan314/fwtool.py](https://github.com/DavidBuchanan314/fwtool.py)——固件解包（仅研究用）。
 
 与 Sony 无关，也未获 Sony 认可。
 

@@ -108,15 +108,30 @@ disk and hashed again before being renamed into place.
 - [BootROM dump](docs/bootrom-dump.md)
 - [Fastboot / eMMC](fastboot/README.md)
 
-## Credits
+## References
+
+Used by the published tools:
 
 - [ma1co/Sony-PMCA-RE](https://github.com/ma1co/Sony-PMCA-RE) (MIT) — USB
-  service-mode transport and authentication.
+  service-mode transport and authentication; fetched by `scripts/setup.sh`.
+- [DavidBuchanan314/ILCE-7M4-RE](https://github.com/DavidBuchanan314/ILCE-7M4-RE)
+  — source of the fastboot/UART/eMMC port in `fastboot/`.
+- [cokeenet/zve10-qemu](https://github.com/cokeenet/zve10-qemu) (MIT) — UART
+  boot protocol, partition map, and hardware reference.
 - [YuuLuo/a7c2-service-preload](https://github.com/YuuLuo/a7c2-service-preload)
-  and [leogenot/sony-a7iv-feature-research](https://github.com/leogenot/sony-a7iv-feature-research)
-  — public prior work on the service/Jiritsu paths.
-- ILCE-7M4-RE fastboot payload and external zve10-qemu references — the
-  fastboot/eMMC port in `fastboot/`.
+  — Jiritsu path traversal / service-mode prior work.
+- [leogenot/sony-a7iv-feature-research](https://github.com/leogenot/sony-a7iv-feature-research)
+  (MIT) — Jiritsu read-only dump method.
+
+Method/research references (not required by the published tools):
+
+- [xyzhangxin/sony-a6700-powerful](https://github.com/xyzhangxin/sony-a6700-powerful)
+  (GPL-3.0) — Pico/CC method reference.
+- [ma1co/OpenMemories-Platform](https://github.com/ma1co/OpenMemories-Platform)
+  (MIT) — `BOOTROM_BASE` for the `/dev/mem` BootROM dump.
+- [ma1co/fwtool.py](https://github.com/ma1co/fwtool.py) (MIT) and
+  [DavidBuchanan314/fwtool.py](https://github.com/DavidBuchanan314/fwtool.py)
+  — firmware unpacking (research only).
 
 Not affiliated with or endorsed by Sony.
 

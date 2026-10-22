@@ -109,7 +109,7 @@ MEM_WRITE(0xFE020000…) → SET_ENTRY(0xFE020001) → SET_UNLOCK`，13.3 ms
 
 ## 源码来源与地址
 
-大部分 USB 栈移植自 ILCE-7M4-RE 的 fastboot payload（CXD90057，
+大部分 USB 栈移植自 [ILCE-7M4-RE](https://github.com/DavidBuchanan314/ILCE-7M4-RE) 的 fastboot payload（CXD90057，
 AArch64），本机只改有明确依据的部分：
 
 | 项 | A7M4（CXD90057） | ZV-E10（CXD90045） | 依据 |

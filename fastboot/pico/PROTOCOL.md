@@ -1,7 +1,7 @@
 # ZV-E10 BootROM 串口启动协议（已验证）
 
 2026-10-22 在本机实测成功。本文是与当前可用方案配套的协议摘要；
-详细逆向来源见外部 zve10-qemu UART boot 参考与 A7C UART boot 笔记。
+详细逆向来源见 [cokeenet/zve10-qemu](https://github.com/cokeenet/zve10-qemu) 的 UART boot 参考与本地 A7C UART boot 笔记。
 
 ## 1. 物理层
 
