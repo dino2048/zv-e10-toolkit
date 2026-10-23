@@ -1,3 +1,5 @@
+[**English**](README.md) | [简体中文](README.zh-CN.md)
+
 # BootROM helper
 
 `read_page.S` / `read_page.elf` — a 460-byte relocation-free ARM EABI

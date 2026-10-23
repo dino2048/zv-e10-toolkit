@@ -1,56 +1,67 @@
-# ZV-E10 fastboot payload（USB 传输层）
+# ZV-E10 fastboot payload (USB transport)
 
-CXD90045（ZV-E10，ARMv7-A/Cortex-A9）裸机 fastboot。用 BootROM 串口启动注入，
-跑起来后把 D−/D+ 交给 PC，PC 用 `fastboot` 访问。
+[**English**](README.md) | [简体中文](README.zh-CN.md)
 
-**当前状态：已实机跑通（2026-10-22），并已通过 stage 2 在真机上读取 eMMC
-（SDM2 分区表与分区数据，只读）。USB 以 `18d1:4ee0` 枚举，`getvar` 返回
-`OKAY0.4`，`oem help/peek` 可用。镜像 7,908 B，在 8 KB 直接注入窗口内。**
+Bare-metal fastboot for the CXD90045 (ZV-E10, ARMv7-A/Cortex-A9). It is injected
+through the BootROM serial boot; once running it hands D−/D+ to the PC, which
+talks `fastboot`.
 
-不要把它和 `../zve10-led-payload` 搞混：那个只闪灯；这个初始化 USB 时钟/PHY/DWC3
-并暴露 fastboot 传输层（`oem peek/poke/call/download/load`）。eMMC 驱动不在这
-7.9 KB 里，而是运行时通过 USB 下发的 [stage2/](stage2/)（1,316 B）。
+**Status: verified on hardware (2026-10-22), including a stage-2 read of eMMC
+(SDM2 partition table and partition data, read-only). The USB device enumerates
+as `18d1:4ee0`; `getvar` returns `OKAY0.4`; `oem help/peek` work. The image is
+7,908 B, inside the 8 KB direct-injection window.**
 
-## 预期现象（v2 诊断版）
+Not to be confused with the LED-only payload (not part of this repository).
+This payload initializes the USB clock/PHY/DWC3 and exposes the fastboot
+transport (`oem peek/poke/call/download/load`). The eMMC driver is not in the
+7.9 KB image; it is downloaded at runtime as [stage2/](stage2/) (1,316 B).
 
-注入后相机（电池保持）先 **一次长闪（0.4 s）**表示 payload 活着，然后是一串
-**短脉冲（120 ms）计数**，最后每 2 秒一次短脉冲表示“在等主机”：
+## Expected behaviour (v2 diagnostic build)
 
-| 短脉冲数 | 到达点 |
+After injection (battery stays in), the camera gives **one long flash (0.4 s)**
+to show the payload is alive, then a series of **short pulses (120 ms)** that
+count progress, then one short pulse every 2 s meaning "waiting for host":
+
+| Short pulses | Reached |
 |---:|---|
-| 1 | USB 时钟/PHY 初始化完成 |
-| 2 | DWC3 核初始化完成（GSNPSID、软复位、事件缓冲） |
-| 3 | `DEPSTARTCFG` 完成 |
-| 4 | EP0 OUT 配置完成 |
-| 5 | EP0 IN 配置完成 |
-| 6 | EP0 使能、SETUP 已挂好 |
-| 之后单脉冲/2 s | D+ 上拉已打开，在等 PC 枚举 |
+| 1 | USB clock/PHY initialized |
+| 2 | DWC3 core initialized (GSNPSID, soft reset, event buffers) |
+| 3 | `DEPSTARTCFG` done |
+| 4 | EP0 OUT configured |
+| 5 | EP0 IN configured |
+| 6 | EP0 enabled, SETUP armed |
+| then one pulse / 2 s | D+ pull-up on, waiting for PC enumeration |
 
-**停在第 N 个短脉冲之后不动 = 下一步没返回**，这比上一版的“1 长 2 短后静默”
-能定位得多。看到“每 2 秒一次短脉冲”就说明 payload 在正常等主机，问题在
-PHY/主机侧而不是卡死。
+**Stopping after the Nth short pulse means the next step did not return**,
+which localizes failures better than the old "one long + two short, then
+silent". Seeing one short pulse every 2 s means the payload is waiting for the
+host; the problem is on the PHY/host side, not a hang.
 
-等主机期间相机不会自己重启；PC 一插上就会看到 `18d1:4ee0`（Google fastboot）：
+The camera does not reboot itself while waiting; once the PC is connected it
+enumerates as `18d1:4ee0` (Google fastboot):
 
-> 闪灯不再调用 ROM 的 `0xFFFF0D0B`：从本地 ROM dump 反汇编可见它在
-> `0xFFFF0DB0` 有一条 `b 0xffff0d58`，**永不返回**，用它做进度提示会卡死。
-> 现在按 ROM 自己的寄存器访问直接驱动 GPIO0 bit0（`0xF2910044/0x48`），
-> 本版用 0.4 s 长闪 / 120 ms 短脉冲，便于计数。
+> The LED no longer calls ROM `0xFFFF0D0B`: the local ROM dump shows a
+> `b 0xffff0d58` at `0xFFFF0DB0`, which **never returns**, so using it for
+> progress would hang. The current build drives GPIO0 bit0 directly through
+> the ROM's own register accesses (`0xF2910044/0x48`), with 0.4 s long /
+> 120 ms short pulses for counting.
 
 ```sh
-# macOS 上的 Android fastboot CLI 认不到这个设备（设备级 class=0xff），
-# 用仓库里的 pyusb 工具，协议完全相同：
+# The Android fastboot CLI on macOS does not recognize this device
+# (device-level class 0xff). Use the pyusb tool in this repository; the
+# protocol is identical:
 python3 fastboot/host/zve10_fb.py getvar product       # -> ZVE10
 python3 fastboot/host/zve10_fb.py oem help
 python3 fastboot/host/zve10_fb.py oem peek:0xf020c120:4    # GSNPSID
-python3 fastboot/host/zve10_fb.py oem peek:0xfe020000:16   # payload 自己的代码
+python3 fastboot/host/zve10_fb.py oem peek:0xfe020000:16   # payload code
 python3 fastboot/host/zve10_fb.py reboot
 ```
 
-地址必须是 8 位十六进制；`0xf02000c120` 这类多一位的输入会被设备端 64 位解析
-拒绝（早期版本截断成 DRAM 地址后 AXI 挂死，整机 USB 不再响应）。
+Addresses must be 8 hex digits. A 40-bit input such as `0xf02000c120` is
+rejected by the device's 64-bit parser (early builds truncated it into DRAM,
+which stalled AXI and stopped all USB responses).
 
-`oem` 命令：
+`oem` commands:
 
 ```
 peek:<addr>[:<len>]   dump memory, max 0x1000
@@ -59,122 +70,139 @@ call:<addr>           call addr as u32 f(void)
 load:<addr>           copy staged download to addr
 ```
 
-`flash:`/`erase:` 明确返回 FAIL——这一版没有 eMMC。
+`flash:`/`erase:` return FAIL explicitly — this build has no eMMC write path.
 
-## stage 2（eMMC 读取）
+## stage 2 (eMMC read)
 
-主 payload 只有 7.9 KB，放不下 eMMC 驱动，所以 eMMC 代码作为二级镜像在运行时
-通过 USB 下发：
+The main payload is only 7.9 KB and cannot hold the eMMC driver, so the eMMC
+code is downloaded at runtime over USB:
 
 ```sh
-# 设备枚举后
-python3 fastboot/host/run_stage2.py --block 0xe000 --count 1   # 读 nflasha3 的第一块
+# after enumeration
+python3 fastboot/host/run_stage2.py --block 0xe000 --count 1   # first block of nflasha3
 ```
 
-`run_stage2.py` 会 `download → oem load:0xfe300000 → poke 参数 → oem call →
-peek`。参数区 `0xFE320000`：`[0]`=起始块（512 B 扇区），`[1]`=块数（≤64）。
-结果在 `0xFE308000`，数据在 `0xFE310000`。
+`run_stage2.py` performs `download → oem load:0xfe300000 → poke parameters →
+oem call → peek`. Parameters live at `0xFE320000`: `[0]` = start block (512 B
+sectors), `[1]` = block count (≤64). The result block is `0xFE308000`; data is
+at `0xFE310000`.
 
-源码在 [stage2/](stage2/)，1,316 B，寄存器序列移植自 CXD90057 的
-`sdhci.c`，基址换成 ZV-E10 的 `0xF0304000`。详见
-[docs/emmc-success.md](docs/emmc-success.md)。
+Source is in [stage2/](stage2/), 1,316 B. The register sequence is ported from
+CXD90057's `sdhci.c`, with the base changed to ZV-E10's `0xF0304000`. See
+[docs/emmc-success.md](docs/emmc-success.md) (Chinese log).
 
-## 硬件与流程
+Protocol: [pico/PROTOCOL.md](pico/PROTOCOL.md).
 
-接线、电池和换线步骤见 [docs/hardware.zh-CN.md](docs/hardware.zh-CN.md)。摘要：
-GP28 → D−：A7（A 组）直连，可选串 470Ω；GP27 → 470Ω → D+：A6（A 组）。
-A6/A7 不行时整组换 B7/B6。5V → VBUS（一根），GND（一根）；
-CC1/CC2 连在一起后经 5.1kΩ 下拉到 GND。注入时相机不接电脑；
-电池插着，GP27 复位，不需要拔电池。如果不行，翻转 USB-C 方向再试。
+## Hardware and flow
+
+Wiring, battery and cable-swap steps are in [docs/hardware.md](docs/hardware.md).
+Summary: GP28 → D−: A7 (A pair), direct, optional 470Ω; GP27 → 470Ω → D+:
+A6 (A pair). If A6/A7 do not work, switch the whole pair to B7/B6. 5V → VBUS
+(one wire), GND (one wire); CC1/CC2 tied with a 5.1kΩ pull-down to GND. The
+camera is not connected to the PC during injection; the battery stays in and
+GP27 resets the camera, no battery removal. If it does not work, flip the
+USB-C direction and retry.
 
 ```sh
-# 以下命令在仓库根目录执行。
+# Run from the repository root.
 
-# 1. 编译
+# 1. build
 make -C fastboot
 make -C fastboot/stage2
 
-# 2. 注入（Pico 已连、相机已开机、电池在）
+# 2. inject (Pico connected, camera on, battery in)
 python3 fastboot/pico/inject_payload.py \
     --port /dev/cu.usbmodemXXXX \
     --file fastboot/build/fastboot.bin --duration 90
 
-# 3. 看到 0x2003 后，把相机 USB-C 从 Pico 拔下，插到 PC
-python fastboot/host/zve10_fb.py getvar product
+# 3. after seeing 0x2003, unplug the camera USB-C from the Pico and connect it to the PC
+python3 fastboot/host/zve10_fb.py getvar product
 ```
 
-`inject_payload.py` 使用与 v15 注入流程相同的记录组：`SET_UNLOCK →
-MEM_WRITE(0xFE020000…) → SET_ENTRY(0xFE020001) → SET_UNLOCK`，13.3 ms
-和 50 ms 的间隔不变；7,908 B 落在 8 KB 已验证窗口内。
+`inject_payload.py` uses the same record group as the v15 flow:
+`SET_UNLOCK → MEM_WRITE(0xFE020000…) → SET_ENTRY(0xFE020001) → SET_UNLOCK`,
+with 13.3 ms / 50 ms gaps; 7,908 B fits the verified 8 KB window.
 
-## 源码来源与地址
+## Source and address map
 
-大部分 USB 栈移植自 [ILCE-7M4-RE](https://github.com/DavidBuchanan314/ILCE-7M4-RE) 的 fastboot payload（CXD90057，
-AArch64），本机只改有明确依据的部分：
+Most of the USB stack is ported from the
+[ILCE-7M4-RE](https://github.com/DavidBuchanan314/ILCE-7M4-RE) fastboot payload
+(CXD90057, AArch64). Only changes with a concrete basis were made:
 
-| 项 | A7M4（CXD90057） | ZV-E10（CXD90045） | 依据 |
+| Item | A7M4 (CXD90057) | ZV-E10 (CXD90045) | Basis |
 |---|---|---|---|
 | DWC3 | `0xF10C0000` | **`0xF0200000`** | `platform.h:191 CXD900X0_USB_DRD_BASE` |
-| 全局/设备寄存器 | `+0xC100/+0xC700` | 相同 | ZV-E10 GPL `drivers/usb/dwc3/core.h` |
-| DWC3 IP 族 | DWC_usb31 | **DWC_usb3（0x5533）** | ZV-E10 GPL 驱动 |
-| DEPCMD 状态位 | bit12-15 | **bit15** | ZV-E10 `core.h` |
-| 时钟/复位 | SCU `0xF1388000` | **CLKRST3 `0xF2900000`** | `platform.h:111`、`usb_otg_reg.h` |
-| IPCLKEN1 | — | `+0x34` 置 bit14（USB30DRD_ACLK） | `usb_otg.c:311` |
-| IPRESET2 | — | `+0xC4` 置 bit9、bit10 | `usb_otg.c:309,317` |
-| OTG / REFCLK | — | `0xF2920000` `+0x100` 置 bit16 | `usb_otg.c:307` |
-| PHY 调节块 | `phy_cr 0xF10A0000` | **`0xF0220000`**（DRD+0x20000） | `platform.c:414` |
-| TXVREFTUNE | U2PHY_CFGR1 | `0xF0220000+0` 低 4 位 = 3 | `usb_otg.c:313-315` |
+| Global/device registers | `+0xC100/+0xC700` | same | ZV-E10 GPL `drivers/usb/dwc3/core.h` |
+| DWC3 IP family | DWC_usb31 | **DWC_usb3 (0x5533)** | ZV-E10 GPL driver |
+| DEPCMD status bits | bit12-15 | **bit15** | ZV-E10 `core.h` |
+| Clock/reset | SCU `0xF1388000` | **CLKRST3 `0xF2900000`** | `platform.h:111`, `usb_otg_reg.h` |
+| IPCLKEN1 | — | `+0x34` bit14 (USB30DRD_ACLK) | `usb_otg.c:311` |
+| IPRESET2 | — | `+0xC4` bits 9, 10 | `usb_otg.c:309,317` |
+| OTG / REFCLK | — | `0xF2920000` `+0x100` bit16 | `usb_otg.c:307` |
+| PHY trim block | `phy_cr 0xF10A0000` | **`0xF0220000`** (DRD+0x20000) | `platform.c:414` |
+| TXVREFTUNE | U2PHY_CFGR1 | `0xF0220000+0` low 4 bits = 3 | `usb_otg.c:313-315` |
 | ADPADDR/ADPDATA | — | `+0x11080` / `+0x11084` | `usb_otg.c:323-324` |
-| TCA | `0xF10D0000` | **不存在**，不访问 | ZV-E10 GPL 无 TCA 代码 |
-| 定时器 | `0xF1042000` 4 MHz | `0xF2403000` 1 MHz | `platform.h:60`、`regs-timer.h` |
-| 复位 | GPIO XRESET_REQ | MISC `0xF2915044` = 0x011 | `core.c:245`、`regs-misc.h` |
-| LED | GPIO ch18 | ROM `0xFFFF0D0B(code)` | 本机实测 |
+| TCA | `0xF10D0000` | **absent, not accessed** | no TCA code in ZV-E10 GPL source |
+| Timer | `0xF1042000` 4 MHz | `0xF2403000` 1 MHz | `platform.h:60`, `regs-timer.h` |
+| Reset | GPIO XRESET_REQ | MISC `0xF2915044` = 0x011 | `core.c:245`, `regs-misc.h` |
+| LED | GPIO ch18 | ROM `0xFFFF0D0B(code)` | measured here |
 
-ZV-E10 侧的初始化序列直接来自 Sony 自己的 `drivers/usb/f_usb/usb_otg.c`：
-REFCLK → 释放 USB30 → 使能 ACLK → TXVREFTUNE → 释放 PHY → `GUSB3PIPECTL
-= 0x11080002` → ADPADDR/ADPDATA。`GUSB2PHYCFG` 保持复位值（Sony 驱动也不写
-PHYIF/USBTRDTIM），只清 suspend 位。
+The ZV-E10 init sequence comes directly from Sony's
+`drivers/usb/f_usb/usb_otg.c`: REFCLK → release USB30 → enable ACLK →
+TXVREFTUNE → release PHY → `GUSB3PIPECTL = 0x11080002` → ADPADDR/ADPDATA.
+`GUSB2PHYCFG` keeps its reset value (Sony's driver also does not write
+PHYIF/USBTRDTIM); only the suspend bit is cleared.
 
-## 与 A7M4 版有意不同的地方
+## Deliberate differences from the A7M4 version
 
-- `start.S` 改为 ARMv7/Thumb：关 IRQ/FIQ、关 I/D cache、设自己的 SP、清 .bss。
-  关 cache 是因为 DWC3 通过 AXI 读 TRB/事件缓冲，cache 开着会读到旧数据。
-- `usb_phy.c` 整份重写（ZV-E10 的时钟/复位/PHY 布局与 CXD90057 完全不同）。
-- `dwc3.c` 去掉 `PWRDNSCALE(2)` 与 `DSBLCLKGTNG`（ZV-E10 驱动明确说后者是保留位）、
-  去掉 UTMI 8-bit 覆写。
-- `led.c`/`log.c` 换成 ROM 闪灯与 PL011 UART0（`0xF2000000`）。
-- `fastboot_min.c` 是新写的精简协议层（`fastboot.c` 里 2,000 行是 A7M4 的
-  eMMC/CP/NOR 命令，这一版不需要）。
+- `start.S` is ARMv7/Thumb: IRQ/FIQ off, I/D cache off, own SP, clear `.bss`.
+  Cache is off because DWC3 reads TRBs/event buffers through AXI; with cache on
+  it can read stale data.
+- `usb_phy.c` was rewritten (ZV-E10's clock/reset/PHY layout is completely
+  different from CXD90057).
+- `dwc3.c` drops `PWRDNSCALE(2)` and `DSBLCLKGTNG` (the ZV-E10 driver says the
+  latter is reserved) and drops the UTMI 8-bit override.
+- `led.c`/`log.c` use the ROM flash routine and PL011 UART0 (`0xF2000000`).
+- `fastboot_min.c` is a new minimal protocol layer (`fastboot.c` in the A7M4
+  tree is 2,000 lines of eMMC/CP/NOR commands; this build does not need them).
 
-## 实测结果（2026-10-22）
+## Verified results (2026-10-22)
 
-- 枚举：`18d1:4ee0`，480 Mb/s，序列号 `ZVE10-fastboot`
-- `getvar:version` → `OKAY0.4`；`oem help/peek/poke/call/download/load` 全部可用
-- GSNPSID `0x5533290A`（DWC_usb3 2.90a），PHY/时钟/复位寄存器读回与写入值一致
-- stage 2：eMMC 识别 + SDM2 分区表 + 分区数据（nflasha3 = FAT），只读
-- 证据：[docs/usb-success.md](docs/usb-success.md)、
-  [docs/emmc-success.md](docs/emmc-success.md)
+- Enumeration: `18d1:4ee0`, 480 Mb/s, serial `ZVE10-fastboot`.
+- `getvar:version` → `OKAY0.4`; `oem help/peek/poke/call/download/load` all work.
+- GSNPSID `0x5533290A` (DWC_usb3 2.90a); PHY/clock/reset registers read back
+  the written values.
+- stage 2: eMMC identification + SDM2 partition table + partition data
+  (nflasha3 = FAT), read-only.
+- Evidence: [docs/usb-success.md](docs/usb-success.md) and
+  [docs/emmc-success.md](docs/emmc-success.md) (Chinese logs).
 
-## 已知问题与限制
+## Known issues and limits
 
-- **payload 约 15–20 分钟后自行复位**，原因未查明。ROM dump 里没有
-  `0xF2402000`（WDT）的引用，可能是 PMIC 侧。每次会话要一次做完。
-- macOS 的 Android `fastboot` CLI 认不到这个设备（设备级 class=0xff），
-  用 `host/zve10_fb.py` / `host/run_stage2.py`。
-- **重复 SET_CONFIGURATION 会挂死 EP0**：macOS 枚举时配置一次、libusb 再配置
-  一次，第二次在 bulk 传输已排队时重跑端点命令就会卡住。`src/usb.c` 已改成
-  只有第一次生效；旧固件仍有这个风险。
-- **非法地址会卡死 AXI**：`oem peek` 的地址若被截断进未初始化的 DRAM，读不会
-  abort 而是挂住总线，连 EP0 都不再响应，只能断电。payload 与主机工具都已加
-  白名单（`0xf0000000-0xf3ffffff`、`0xfe000000-0xfeffffff`）。
-- `oem peek:<addr>:<len>` 的 `len` 按**十六进制**解析：要 64 字节写 `:40`。
-- 闪灯用 GPIO0 bit0 直接驱动（`0xF2910044/0x48`），不再调用 ROM 的
-  `0xFFFF0D0B`（它在 `0xFFFF0DB0` 有 `b 0xffff0d58`，永不返回）。
-- 写入边界不变：主 payload 与 stage2 只读内存和 eMMC；没有任何写卡路径。
+- **The payload resets itself after about 15–20 minutes**, cause unknown. The
+  ROM dump has no reference to `0xF2402000` (WDT); it may be PMIC-side. Finish
+  each session in one pass.
+- macOS's Android `fastboot` CLI does not recognize this device (device-level
+  class 0xff); use `host/zve10_fb.py` / `host/run_stage2.py`.
+- **Repeated SET_CONFIGURATION hangs EP0**: macOS configures once during
+  enumeration and libusb configures again; the second one, with bulk transfers
+  already queued, can hang the endpoint commands. `src/usb.c` now applies only
+  the first one; old firmware still has this risk.
+- **An invalid address stalls AXI**: if an `oem peek` address is truncated into
+  untrained DRAM, the read does not abort but stalls the bus; even EP0 stops
+  responding and only a power cycle recovers. Payload and host tools now have
+  whitelists (`0xf0000000-0xf3ffffff`, `0xfe000000-0xfeffffff`).
+- `oem peek:<addr>:<len>` parses `len` as **hex**: for 64 bytes write `:40`.
+- The LED is driven directly through GPIO0 bit0 (`0xF2910044/0x48`); the ROM's
+  `0xFFFF0D0B` is not used (it has a `b 0xffff0d58` at `0xFFFF0DB0` that never
+  returns).
+- Write boundary unchanged: the main payload and stage2 only read memory and
+  eMMC; there is no card-write path.
 
-## 下一步
+## Next steps
 
-1. **device→host 批量上传通道**：现在一次 `oem peek` 只能回 4 KB，
-   整分区 dump 需要加一个 bulk IN 上传命令。
-2. **写路径**（CMD6/CMD24/25）：逐次授权后再做，先写 RAM 镜像验证。
-3. **查清 15–20 分钟复位来源**：PMIC / 其他看门狗。
+1. **device→host bulk upload**: one `oem peek` currently returns only 4 KB;
+   a full-partition dump needs a bulk IN upload command.
+2. **Write path** (CMD6/CMD24/25): only after per-operation authorization;
+   start with a RAM image and verify readback.
+3. **Find the source of the 15–20 minute reset**: PMIC / another watchdog.

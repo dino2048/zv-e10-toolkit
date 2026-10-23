@@ -1,65 +1,73 @@
-# ZV-E10 BootROM 串口启动协议（已验证）
+# ZV-E10 BootROM serial-boot protocol (verified)
 
-2026-10-22 在本机实测成功。本文是与当前可用方案配套的协议摘要；
-详细逆向来源见 [cokeenet/zve10-qemu](https://github.com/cokeenet/zve10-qemu) 的 UART boot 参考与本地 A7C UART boot 笔记。
+[**English**](PROTOCOL.md) | [简体中文](PROTOCOL.zh-CN.md)
 
-## 1. 物理层
+Verified on hardware on 2026-10-22. This is the protocol summary for the current
+working flow. Reverse-engineering references:
+[cokeenet/zve10-qemu](https://github.com/cokeenet/zve10-qemu) UART boot and the
+local A7C UART boot notes.
 
-| 项 | 值 |
+## 1. Physical layer
+
+| Item | Value |
 |---|---|
-| 信号 | 相机 USB-C **D− (A7)**；本机实测**直连、无串阻**（参考用 470Ω 保护） |
-| 电平 | **OPEN_DRAIN**（借相机侧上拉；不要 3.3V 推挽） |
-| 链路 | **48000 baud，8O1**（start + 8 data LSB + odd parity + stop = 11 bit） |
-| 位周期 | 20.83 µs（参考 B/4.032 MHz 组；21.0 µs 也可尝试） |
-| carrier | 125 µs 半周期（约 4 kHz），**常开** |
-| 同步慢块 | 250 µs（必须在 225.4–293.6 µs 窗口内） |
-| 记录间隔 | 14.4 ms；组内不得有 >293.6 µs 静默 |
-| 一组总时长 | 同族文档 `<1.45 s`；本机实测 8 KB/2.17 s 通过、10 KB/2.65 s 返回 `0x2004`，实际上限约 **8–10 KB** |
+| Signal | Camera USB-C **D− (A7)**; measured **direct, no series resistor** (the reference uses 470Ω for protection) |
+| Level | **OPEN_DRAIN** (uses the camera-side pull-up; do not push 3.3V) |
+| Link | **48000 baud, 8O1** (start + 8 data LSB + odd parity + stop = 11 bits) |
+| Bit period | 20.83 µs (reference B/4.032 MHz group; 21.0 µs also worth trying) |
+| Carrier | 125 µs half-period (~4 kHz), **always on** |
+| Slow sync block | 250 µs (must be inside the 225.4–293.6 µs window) |
+| Record interval | 14.4 ms; no gap >293.6 µs inside a group |
+| Group duration | family docs say `<1.45 s`; measured 8 KB/2.17 s passes, 10 KB/2.65 s returns `0x2004`; practical limit about **8–10 KB** |
 
-发送端实测：RP2040 Pico，PIO 位翻转 + DMA，open-drain；当前使用
-`zve10_pico_od_reset`（v15）和 `inject_payload.py`，GP27 复位、电池保持。
-v7 + `inject_fixed.py` 是旧的拔电池冷启动方法。
+Sender verified: RP2040 Pico, PIO bit-banging + DMA, open-drain. The current
+flow uses `zve10_pico_od_reset` (v15) and `inject_payload.py`, with GP27 reset
+and the battery left in. v7 + `inject_fixed.py` is the legacy battery-removal
+cold-boot method.
 
-接线：USB-C 公头转 24pin 小板；GP28 → D−：A7（A 组，可选串 470Ω），
-GP27 → 470Ω → D+：A6（A 组）；A6/A7 不行时整组换 B7/B6。
-5V → VBUS（一根），GND（一根），CC1/CC2 并接后 5.1kΩ 下拉到 GND；
-GP29 不接。详见 [../docs/hardware.zh-CN.md](../docs/hardware.zh-CN.md)。
+Wiring: USB-C male to 24-pin breakout; GP28 → D−: A7 (A pair, optional 470Ω),
+GP27 → 470Ω → D+: A6 (A pair); if A6/A7 do not work, switch the whole pair to
+B7/B6. 5V → VBUS (one wire), GND (one wire), CC1/CC2 tied with 5.1kΩ to GND;
+GP29 is not connected. See [../docs/hardware.md](../docs/hardware.md).
 
-## 2. 记录格式
+## 2. Record format
 
 ```python
 body   = struct.pack("<IHI", 10 + len(payload), rtype, value) + payload
 record = body + struct.pack("<I", zlib.crc32(body) & 0xffffffff)
 ```
 
-| 偏移 | 宽度 | 字段 |
+| Offset | Width | Field |
 |---|---|---|
-| `+0x00` | u32 LE | `length = 10 + payload_len`（不含尾部 CRC） |
+| `+0x00` | u32 LE | `length = 10 + payload_len` (excluding the trailing CRC) |
 | `+0x04` | u16 LE | type |
 | `+0x06` | u32 LE | value |
-| `+0x0A` | length-10 | payload（仅“其他 type”读取） |
-| `+length` | u32 LE | CRC32（zlib，poly `0xEDB88320`） |
+| `+0x0A` | length-10 | payload (read only for "other" types) |
+| `+length` | u32 LE | CRC32 (zlib, poly `0xEDB88320`) |
 
-## 3. 记录类型与组语义
+## 3. Record types and group semantics
 
-| type | 含义 | 行为 |
+| type | Meaning | Behaviour |
 |---|---|---|
-| `0x0000` | `SET_UNLOCK` | value = 解锁 token；置内部 flag0 |
-| `0x0001` | `MEM_WRITE` | value = 目标地址；payload 直接写入（无地址校验） |
-| `0xFFFF` | `SET_ENTRY` | value = 入口地址；写 `[0xFE00500C]` 并置 flag1 |
-| 其他 | 普通记录 | 按 payload 处理 |
+| `0x0000` | `SET_UNLOCK` | value = unlock token; sets internal flag0 |
+| `0x0001` | `MEM_WRITE` | value = target address; payload is written directly (no address check) |
+| `0xFFFF` | `SET_ENTRY` | value = entry address; writes `[0xFE00500C]` and sets flag1 |
+| other | ordinary record | handled as payload |
 
-**组规则（关键）**：
+**Group rules (critical):**
 
-- 组首与组末必须是**同一 type**；ROM 收到与组首同类型的记录即关组。
-- 必须用 **`SET_UNLOCK` 作为组首/组末**，不能用 `marker(0x0123)`；
-  否则关组时 flag0=0，载荷不跳转（我们之前失败的根因）。
-- 关组时 `flag0 | flag1` 必须非 0；`SET_ENTRY` 置 flag1。
-- `MEM_WRITE` 记录 `length >= 0x0A`；任意记录 `length <= 0x1000`。
+- The first and last records must have the **same type**; the ROM closes the
+  group when it receives a record of the same type as the first.
+- Use **`SET_UNLOCK` as both the first and last record**, not `marker(0x0123)`;
+  otherwise flag0 is 0 when the group closes and the payload does not jump
+  (this was the root cause of earlier failures).
+- When the group closes, `flag0 | flag1` must be non-zero; `SET_ENTRY` sets
+  flag1.
+- `MEM_WRITE` records need `length >= 0x0A`; any record needs `length <= 0x1000`.
 
-## 4. 解锁 token
+## 4. Unlock token
 
-ZV-E10 的 boot0（EXBL 头）偏移 `0x200` 处 8 字节：
+At offset `0x200` of the ZV-E10 boot0 (EXBL header), 8 bytes:
 
 ```text
 V = 0x8CB102DC
@@ -67,61 +75,68 @@ C = 0xA86DA25E
 crc32(V || C) == 0xFFFFFFFF
 ```
 
-`SET_UNLOCK` 的 value 必须等于 V，否则 ROM 报 `0x2002`（1 长 2 短）。
-参考仓库的 `zve10-uart-boot/README.md` 与 `inject_a7c_exact.py` 使用同一值。
+`SET_UNLOCK`'s value must equal V; otherwise the ROM reports `0x2002`
+(1 long, 2 short). The reference repository's `zve10-uart-boot/README.md` and
+`inject_a7c_exact.py` use the same value.
 
-## 5. 完整序列
+## 5. Full sequence
 
 ```text
 SET_UNLOCK(0x8CB102DC)
 MEM_WRITE(0xFE020000, payload)
-SET_ENTRY(0xFE020001)          ; Thumb 入口
+SET_ENTRY(0xFE020001)          ; Thumb entry
 SET_UNLOCK(0x8CB102DC)
 ```
 
-- 载波常开；每条记录后等 14.4 ms；整组反复重放。
-- **整组重放**覆盖相机上电后的接收窗口；单次发送很容易错过。
-- 参考的 `CMD_BLOB` 路径不追加 FF 尾字节；本机成功路径也未追加。
-- 组总时长必须 <1.45 s。
+- Carrier stays on; wait 14.4 ms after each record; replay the whole group.
+- **Replaying the group** covers the camera's receive window after power-up;
+  a single send is easily missed.
+- The reference `CMD_BLOB` path does not append an FF tail byte; the working
+  path here does not either.
+- Total group duration must be <1.45 s.
 
-## 6. 自证明 payload
+## 6. Self-proof payload
 
 ```text
 02 48        ldr r0, [pc, #8]    ; r0 = 0x2007
 03 49        ldr r1, [pc, #12]   ; r1 = 0xFFFF0D0B
-08 47        bx  r1               ; 调用 ROM 0xFFFF0D0A
+08 47        bx  r1               ; call ROM 0xFFFF0D0A
 00 bf ×3     nop
 07 20 00 00  .word 0x00002007
 0b 0d ff ff  .word 0xFFFF0D0B
 ```
 
-- 加载地址 `0xFE020000`；Thumb 入口 `0xFE020001`。
-- 期望灯码 **1 长 + 7 短**（`0x2007`），ROM 自身错误路径不可能产生。
+- Load address `0xFE020000`; Thumb entry `0xFE020001`.
+- Expected LED code **1 long + 7 short** (`0x2007`), which the ROM's own error
+  paths cannot produce.
 
-## 7. 错误灯码
+## 7. Error LED codes
 
-| 长 | 短 | code | 含义 |
+| Long | Short | Code | Meaning |
 |---|---|---|---|
-| 0 | 13 | `0x100D` | 奇校验错（收到数据但解不对） |
-| 1 | 2 | `0x2002` | token 不匹配 |
-| 1 | 3 | `0x2003` | CRC 校验失败 |
-| 1 | 4 | `0x2004` | 记录不完整 / 同步失败 / 字节超时 / `len > 0x1000` |
-| 1 | 5 | `0x2005` | 跳转发生且入口返回 |
-| 2 | 1 | `0x3001` | 接收超时 |
-| 0 | 1 | `0x1001` | 只有 flag0，未置 entry |
+| 0 | 13 | `0x100D` | odd-parity error (data received but decoded wrong) |
+| 1 | 2 | `0x2002` | token mismatch |
+| 1 | 3 | `0x2003` | CRC failure |
+| 1 | 4 | `0x2004` | incomplete record / sync failure / byte timeout / `len > 0x1000` |
+| 1 | 5 | `0x2005` | jump happened and the entry returned |
+| 2 | 1 | `0x3001` | receive timeout |
+| 0 | 1 | `0x1001` | only flag0, entry not set |
 
-## 8. 与其他机型的关系
+## 8. Relation to other models
 
-- **A7C / A7M4 家族**：相同的记录格式、`SET_UNLOCK` / `MEM_WRITE` /
-  `SET_ENTRY`、组关语义、入口槽和 `bx` 跳转；ZV-E10 这次的实际行为与它们
-  一致，而不是候选 ROM 推断的“无 token Path A”。
-- **A6700**：另一代机型；开漏 / 48 kbaud 的发送方法可借鉴，但记录内容和
-  时序不能直接照搬。
-- 机型差异主要在 ROM 内部地址/flag/定时描述符；**发送端记录协议相同**。
+- **A7C / A7M4 family**: same record format, `SET_UNLOCK` / `MEM_WRITE` /
+  `SET_ENTRY`, group-close semantics, entry slot and `bx` jump. ZV-E10's
+  observed behaviour matches them, not the candidate ROM's "no-token Path A".
+- **A6700**: another generation; the open-drain / 48 kbaud sender method is
+  reusable, but record content and timing cannot be copied directly.
+- Model differences are mostly ROM-internal addresses, flags, and timer
+  descriptors; the **sender record protocol is the same**.
 
-## 9. 边界
+## 9. Boundaries
 
-- payload 在 SRAM，易失；断电清除，相机恢复正常启动。
-- 写入只到 SRAM；eMMC/SD/OTP 未触碰。
-- 更大载荷需要二级 loader（参考仓库的 `stage_a.py` / `stage_b.py` 路线）。
-- 不是运行时漏洞；需要专用接线与上电时序。
+- The payload lives in SRAM and is volatile; power loss clears it and the
+  camera boots normally.
+- Writes reach SRAM only; eMMC, SD, and OTP are untouched.
+- Larger payloads need a second-stage loader (the reference repository's
+  `stage_a.py` / `stage_b.py` route).
+- Not a runtime exploit; it needs dedicated wiring and reset timing.
