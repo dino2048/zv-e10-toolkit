@@ -1,29 +1,31 @@
-# Local environment
+# Local environments and dependencies
 .venv/
 vendor/
 __pycache__/
 *.py[cod]
 .DS_Store
 
-# Camera data and backups: never commit
+# Private device data and runtime output
 backups/
 session/
+logs/
 *.bin
 *.img
 *.elf
-!payload/read_page.elf
 *.so
 *.part
 *.tar.gz
 *.zip
-logs/
+*.simg
 
-# Fastboot build outputs and keep the Pico log directory
-!fastboot/build/fastboot.bin
-!fastboot/stage2/build/stage2.bin
-!fastboot/pico/logs/
-!fastboot/pico/logs/.gitkeep
+# Approved self-built payloads only
+!linux/helpers/bootrom-reader/read_page.elf
+!bootrom/prebuilt/*.bin
+
+# Rebuildable intermediate files
+build/
+build-flash/
+build-v*/
 *.o
 *.map
 *.uf2
-build-v*/

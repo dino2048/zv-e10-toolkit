@@ -1,0 +1,17 @@
+{
+  "firmware": "30110_05.2025031501",
+  "artifacts": {
+    "stage1.bin": {
+      "bytes": 8028,
+      "sha256": "4b63d41fc4ba537b2811cc444389c5db152aac92b699129bc0cd1c623ad034e9",
+      "identity": "stage1",
+      "writer": false
+    },
+    "stage2-flash.bin": {
+      "bytes": 10588,
+      "sha256": "3e9e54b6cacbeaa764b47676f3d55e7f7463341d9f86506466b42af6730005ab",
+      "identity": "stage2-flash-20261026",
+      "writer": true
+    }
+  }
+}

@@ -1,121 +1,62 @@
-# zv-e10-toolkit
+# Sony ZV-E10 服务接口与 BootROM 工具
 
 **简体中文** | [English](README.md)
 
-面向 Sony ZV-E10 的备份、服务模式、BootROM 与 fastboot/eMMC 工具箱。
-在固件 `30110_05.2025031501`、macOS 上实测。
+本仓库包含两组适用于 Sony ZV-E10 的工具。`linux/` 通过相机启动后的 USB 服务接口读取文件、eMMC 和 BootROM；`bootrom/` 通过 Pico 串口注入程序，在 Linux 启动前提供内存访问、eMMC 分区读写和基于备份的分区恢复。两组工具对部分数据提供不同的读取方式。
 
-## 工具
+| 路线 | 进入方式 | 主要能力 | 从这里开始 |
+|---|---|---|---|
+| `linux/`：Linux 系统内操作 | 相机启动 Linux 后，通过 USB 服务接口连接 | root 终端、文件提取、原始 eMMC 备份、BootROM 提取、离线校验 | [Linux 使用说明](linux/README.zh-CN.md) |
+| `bootrom/`：BootROM 注入与裸机操作 | Pico 串口注入 stage1，USB 加载 stage2 | 裸机内存访问、fastboot 分区读取、raw/sparse 写入、分区恢复 | [裸机使用说明](bootrom/README.zh-CN.md) |
 
-| 工具 | 用途 | 相机端影响 |
-|---|---|---|
-| `tools/zve10_backup_raw.py` | 读取内核暴露的用户区和 B0/B1，各读两遍，保存原始镜像和哈希 | 无 |
-| `tools/zve10_backup_files.py` | 通过服务终端复制指定普通文件 | 无 |
-| `tools/zve10_verify.py` | 离线校验 manifest、`SHA256SUMS` 和分区切片 | 无 |
-| `tools/zve10_terminal_server.py` + 客户端 | 服务 shell；默认只读白名单 | 默认无；可选写模式 |
-| `tools/zve10_read_file_jiritsu.py` | 可选的 Jiritsu `GET_FILE` 文件读取 | 无 |
-| `tools/zve10_bootrom_dump.py` | 通过 `/dev/mem` 两遍读取 BootROM（实验性） | `/tmp_bt` tmpfs 中的临时助手 |
-| `fastboot/` | Pico 注入的 fastboot payload 和 stage2 eMMC 读取（手动，需要硬件） | SRAM payload；不写 eMMC |
+## 使用条件与操作
 
-## Fastboot / eMMC（手动）
+- 相机可启动并接受 USB 服务连接时，使用 [Linux 工具](linux/README.zh-CN.md)访问终端、读取文件或制作备份。
+- 制作可供后续比对或分区恢复的备份时，读取两遍 eMMC 镜像并执行[离线校验](linux/docs/verification.zh-CN.md)。
+- Linux 无法启动但 BootROM 注入及裸机 USB 通信正常时，可按[分区恢复说明](bootrom/docs/recovery.zh-CN.md)从已有备份恢复受支持的用户分区。
 
-`fastboot/` 是另一条硬件路径：Pico BootROM 串口注入 → DWC3 fastboot payload →
-stage2 eMMC 块读取。需要 Pico、470Ω 复位线、CC1/CC2 并接后 5.1kΩ 下拉、电池保持和手动构建，不属于 Python 工具链。
+## 内容布局
 
-- [fastboot/README.zh-CN.md](fastboot/README.zh-CN.md)
-- [硬件与接线](fastboot/docs/hardware.zh-CN.md)
-- [USB 成功日志](fastboot/docs/usb-success.md)
-- [eMMC 成功日志](fastboot/docs/emmc-success.md)
-
-## 安装
-
-```sh
-./scripts/setup.sh
+```text
+linux/                      Linux 系统内操作
+  host/                     电脑端：终端、提取、备份与离线校验
+  scripts/                  环境安装和启动入口
+  helpers/bootrom-reader/   相机端：Linux BootROM 读取助手
+  docs/                     服务模式与各项操作说明
+  examples/                 备份清单与分区表示例
+  requirements.txt          Linux 路线 Python 依赖
+bootrom/                    BootROM 注入与裸机操作
+  stage1/                   第一级：USB 传输与内存访问
+  stage2/                   第二级：eMMC / fastboot；含离线测试
+  host/                     电脑端：加载、备份比较与恢复
+  pico/                     Pico 固件、协议和注入工具
+  tools/                    ABI 校验与 sparse 生成
+  prebuilt/                 正式配套镜像与完整 SHA-256
+  docs/                     接线、内存读取和分区恢复说明
+  Makefile                  统一构建、检查、测试入口
+  requirements.txt          裸机路线 Python 依赖
 ```
 
-脚本创建 `.venv/`、安装 Python 依赖，并把 [Sony-PMCA-RE](https://github.com/ma1co/Sony-PMCA-RE) 克隆到 `vendor/`。
-需要 Python 3.10+、`libusb`、相机处于 USB 海量存储模式，以及约 4 GB 空闲空间。
+每条路线的命令从各自目录执行；Linux 环境、依赖仓库、备份和会话输出也以 `linux/` 为根。
+正式镜像集中在 `bootrom/prebuilt/`，不包含本地构建中间文件。构建和测试见 [开发说明](CONTRIBUTING.md)。
 
-## 快速开始
+## 当前范围
 
-```sh
-./scripts/run_raw_backup.sh
-./scripts/run_file_backup.sh --phase critical
+- 现有文档的实机验证对象是 ZV-E10、固件 `30110_05.2025031501`，主机为 macOS。
+- 裸机分区读写、sparse、回读校验和恢复已有实机记录；约 4 分钟外部复位限制仍存在，需要分批操作。
+- 恢复脚本支持 16 个用户分区，不处理 boot0/boot1、分区表或硬件故障。
+- Linux 路线读取的 BootROM 范围为 24 KiB；裸机 `peek` 允许的地址范围见[内存读取说明](bootrom/docs/exploration.zh-CN.md)。
+- 本仓库不包含 Sony 固件、BootROM 镜像、服务密钥表或设备备份。研究历史与原始证据保留在发布仓库之外。
 
-.venv/bin/python tools/zve10_verify.py manifest \
-  --manifest backups/zve10-raw-emmc-*/manifest.json
-.venv/bin/python tools/zve10_verify.py sums \
-  --sums backups/zve10-raw-emmc-*/SHA256SUMS
+## 来源与致谢
 
-./scripts/run_terminal.sh
-.venv/bin/python tools/zve10_terminal_client.py
+- [ma1co/Sony-PMCA-RE](https://github.com/ma1co/Sony-PMCA-RE)（MIT）：USB 服务模式传输；Linux 安装脚本单独下载。
+- [DavidBuchanan314/ILCE-7M4-RE](https://github.com/DavidBuchanan314/ILCE-7M4-RE)：BootROM 两级程序中部分 DWC3、USB、SDHCI、寄存器定义和 I/O 代码移植或改编自其 `payloads/fastboot` 实现。上游仓库目前未声明再发布许可证。
+- [cokeenet/zve10-qemu](https://github.com/cokeenet/zve10-qemu)（MIT）：UART 启动协议、分区表及硬件参考。
+- [YuuLuo/a7c2-service-preload](https://github.com/YuuLuo/a7c2-service-preload) 与 [leogenot/sony-a7iv-feature-research](https://github.com/leogenot/sony-a7iv-feature-research)（MIT）：Jiritsu 与服务模式研究参考。
+- [xyzhangxin/sony-a6700-powerful](https://github.com/xyzhangxin/sony-a6700-powerful)（GPL-3.0）：Pico/CC 方法参考。
+- [ma1co/OpenMemories-Platform](https://github.com/ma1co/OpenMemories-Platform)（MIT）：BootROM 基址参考。
+- [ma1co/fwtool.py](https://github.com/ma1co/fwtool.py)（MIT）与 [DavidBuchanan314/fwtool.py](https://github.com/DavidBuchanan314/fwtool.py)：固件解包研究参考，未收入本仓库。
 
-./scripts/run_bootrom_dump.sh --owner-authorized-exec
-```
-
-完整 shell：
-
-```sh
-./scripts/run_terminal.sh --owner-authorized-write
-```
-
-## 原始备份产物
-
-```
-backups/zve10-raw-emmc-<时间戳>/
-├── nflasha.read1.bin   nflasha.read2.bin
-├── nflashaB0.read1.bin nflashaB0.read2.bin
-├── nflashaB1.read1.bin nflashaB1.read2.bin
-├── manifest.json
-└── SHA256SUMS
-```
-
-每个文件接收时计算 SHA-256，`fsync` 后从主机磁盘独立重读并重新计算哈希，一致后才改名为正式文件。
-
-## 限制
-
-- 没有写回、恢复或救砖路径。
-- 原始镜像是 Linux 驱动暴露的内容，不是物理芯片转储；不含 RPMB、OTP/eFuse 或隐藏区域。
-- 不是原子快照：rw 分区在两遍读取之间可能变化。两份镜像都会保留，差异如实报告。
-- 要求相机能启动到接受服务会话的程度。
-- BootROM 转储只覆盖已验证的 `0xffff0000–0xffff5fff`，并从 tmpfs 执行一个临时助手。
-- 只在上述固件实测；设备路径和容量是 ZV-E10 专用的。
-
-## 说明
-
-- 仅用于你拥有或有权维修的设备。
-- 仓库不包含 Sony 固件、二进制、服务密钥表或设备数据。
-- BootROM 转储属于 Sony 固件内容。请私密保存，不要提交。
-- 服务模式是未公开的厂商接口，当地法律可能限制使用。这不是法律意见。
-
-## 文档
-
-- [服务模式](docs/service-mode.zh-CN.md)
-- [root 终端](docs/root-terminal.zh-CN.md)
-- [FileControl 读取路径](docs/filecontrol-read.zh-CN.md)（含可选的 Jiritsu 路径）
-- [备份方法](docs/backup-method.zh-CN.md)
-- [校验](docs/verification.zh-CN.md)
-- [BootROM dump](docs/bootrom-dump.zh-CN.md)
-- [Fastboot / eMMC](fastboot/README.zh-CN.md)
-
-## 引用与致谢
-
-已发布工具实际使用：
-
-- [ma1co/Sony-PMCA-RE](https://github.com/ma1co/Sony-PMCA-RE)（MIT）——USB 服务模式传输与认证；`scripts/setup.sh` 会克隆。
-- [DavidBuchanan314/ILCE-7M4-RE](https://github.com/DavidBuchanan314/ILCE-7M4-RE)——`fastboot/` 里 fastboot/UART/eMMC 移植的来源。
-- [cokeenet/zve10-qemu](https://github.com/cokeenet/zve10-qemu)（MIT）——UART 启动协议、分区表和硬件参考。
-- [YuuLuo/a7c2-service-preload](https://github.com/YuuLuo/a7c2-service-preload)——Jiritsu 路径穿越 / 服务模式前置工作。
-- [leogenot/sony-a7iv-feature-research](https://github.com/leogenot/sony-a7iv-feature-research)（MIT）——Jiritsu 只读 dump 方法。
-
-方法/研究参考（发布的工具不依赖）：
-
-- [xyzhangxin/sony-a6700-powerful](https://github.com/xyzhangxin/sony-a6700-powerful)（GPL-3.0）——Pico/CC 方法参考。
-- [ma1co/OpenMemories-Platform](https://github.com/ma1co/OpenMemories-Platform)（MIT）——`/dev/mem` BootROM dump 的 `BOOTROM_BASE`。
-- [ma1co/fwtool.py](https://github.com/ma1co/fwtool.py)（MIT）与 [DavidBuchanan314/fwtool.py](https://github.com/DavidBuchanan314/fwtool.py)——固件解包（仅研究用）。
-
-与 Sony 无关，也未获 Sony 认可。
-
-## 许可证
-
-MIT。见 [LICENSE](LICENSE) 与 [NOTICE](NOTICE)。
+仅用于拥有或获授权维修的设备。项目与 Sony 无关，也未获 Sony 认可。
+仓库的 MIT 许可见 [LICENSE](LICENSE)；上游代码仍保留其原有权利。
