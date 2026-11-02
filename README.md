@@ -2,18 +2,30 @@
 
 **English** | [简体中文](README.zh-CN.md)
 
-This repository contains two sets of tools for the Sony ZV-E10. `linux/` reads files, eMMC and BootROM through the USB service interface after the camera starts Linux. `bootrom/` uses Pico serial injection to provide memory access, eMMC partition reads and writes, and partition recovery from backups before Linux starts. Some data can be read through either route.
+This repository provides two sets of tools for the Sony ZV-E10.
+
+## Two main uses
+
+1. **Normal use / full backup**  
+   When the camera boots Linux, use `linux/` over the USB service interface to read files, the whole eMMC and BootROM, and run offline verification.
+
+2. **Brick recovery / partition restore**  
+   When Linux cannot start, use the `fastboot/` toolkit to read or write user partitions and restore from an existing backup. Pico BootROM serial injection is only how fastboot is entered.
+
+Some data can be read through either route.
+
+## Routes
 
 | Route | Entry | Capabilities | Start here |
 |---|---|---|---|
 | `linux/` | USB service connection after the camera boots Linux | Root terminal, file extraction, raw eMMC backup, BootROM extraction, offline verification | [Linux guide](linux/README.md) |
-| `bootrom/` | Pico serial injection of stage1, then USB loading of stage2 | Bare-metal memory access, fastboot partition reads, raw/sparse writes and partition recovery | [Bare-metal guide](bootrom/README.md) |
+| `fastboot/`: Fastboot toolkit | BootROM serial injection of stage1, then USB loading of stage2 | Fastboot partition reads, raw/sparse writes, backup/partition restore, long sessions | [Fastboot guide](fastboot/README.md) |
 
 ## Operating conditions and tasks
 
 - When the camera starts and accepts a USB service connection, use the [Linux tools](linux/README.md) for terminal access, file reads or backups.
 - To prepare backups for comparison or later partition recovery, read eMMC twice and run [offline verification](linux/docs/verification.md).
-- If Linux cannot start but BootROM injection and payload USB communication work, follow the [partition recovery guide](bootrom/docs/recovery.md) to restore supported user partitions from an existing backup.
+- If Linux cannot start but BootROM injection and fastboot communication work, follow the [partition recovery guide](fastboot/docs/recovery.md) to restore supported user partitions from an existing backup.
 
 ## Layout
 
@@ -25,7 +37,7 @@ linux/
   docs/                     Service-mode and operation guides
   examples/                 Manifest and partition-layout examples
   requirements.txt          Python dependencies for this route
-bootrom/
+fastboot/                  Fastboot toolkit (BootROM bootstrap)
   stage1/                   First stage: USB transport and memory access
   stage2/                   Second stage: eMMC / fastboot and offline tests
   host/                     Computer-side loading, backup comparison and recovery
@@ -38,15 +50,15 @@ bootrom/
 ```
 
 Run commands from the relevant route directory. The Linux environment, vendor
-checkout, backup and session directories are rooted in `linux/`. Published payloads live in `bootrom/prebuilt/`; intermediate build outputs are excluded.
+checkout, backup and session directories are rooted in `linux/`. Published payloads live in `fastboot/prebuilt/`; intermediate build outputs are excluded.
 See [development and validation](CONTRIBUTING.md) for building and testing.
 
 ## Current scope
 
 - Existing hardware validation covers ZV-E10 firmware `30110_05.2025031501` with macOS hosts.
-- Bare-metal reads, writes, sparse images, readback and partition recovery have hardware validation records. An approximately four-minute external reset requires batching longer operations.
+- Fastboot partition reads, writes, sparse images, readback and partition recovery have hardware validation records. The approximately four-minute automatic reset no longer interrupts fastboot sessions; fastboot remains available until reboot or power-off, so large partition operations can run in one session.
 - The recovery script supports 16 user partitions; it does not handle boot0/boot1, the partition table or hardware faults.
-- The Linux route reads a 24 KiB BootROM range. See [memory read documentation](bootrom/docs/exploration.md) for the permitted bare-metal `peek` ranges.
+- The Linux route reads a 24 KiB BootROM range. See [memory read documentation](fastboot/docs/exploration.md) for the permitted bare-metal `peek` ranges.
 - No Sony firmware, BootROM dumps, service key tables or device backups are included. Research history and raw evidence live outside this publication repository.
 
 ## Sources and acknowledgements

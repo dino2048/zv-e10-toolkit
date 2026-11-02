@@ -2,18 +2,30 @@
 
 **简体中文** | [English](README.md)
 
-本仓库包含两组适用于 Sony ZV-E10 的工具。`linux/` 通过相机启动后的 USB 服务接口读取文件、eMMC 和 BootROM；`bootrom/` 通过 Pico 串口注入程序，在 Linux 启动前提供内存访问、eMMC 分区读写和基于备份的分区恢复。两组工具对部分数据提供不同的读取方式。
+本仓库提供 Sony ZV-E10 的两组工具。
+
+## 两种主要用途
+
+1. **正常使用 / 全盘备份**  
+   相机能启动 Linux 时，用 `linux/` 通过 USB 服务接口读取文件、整个 eMMC 和 BootROM，并做离线校验。
+
+2. **救砖 / 分区恢复**  
+   Linux 无法启动时，用 `fastboot/` 的 fastboot 工具读取或写回用户分区，从已有备份恢复。Pico 的 BootROM 串口注入只是进入 fastboot 的方式。
+
+两条路线对部分数据提供不同的读取方式。
+
+## 路线
 
 | 路线 | 进入方式 | 主要能力 | 从这里开始 |
 |---|---|---|---|
 | `linux/`：Linux 系统内操作 | 相机启动 Linux 后，通过 USB 服务接口连接 | root 终端、文件提取、原始 eMMC 备份、BootROM 提取、离线校验 | [Linux 使用说明](linux/README.zh-CN.md) |
-| `bootrom/`：BootROM 注入与裸机操作 | Pico 串口注入 stage1，USB 加载 stage2 | 裸机内存访问、fastboot 分区读取、raw/sparse 写入、分区恢复 | [裸机使用说明](bootrom/README.zh-CN.md) |
+| `fastboot/`：Fastboot 工具（BootROM 注入启动） | Pico 串口注入 stage1，USB 加载 stage2 | fastboot 分区读取、raw/sparse 写入、备份/分区恢复、长会话 | [Fastboot 使用说明](fastboot/README.zh-CN.md) |
 
 ## 使用条件与操作
 
 - 相机可启动并接受 USB 服务连接时，使用 [Linux 工具](linux/README.zh-CN.md)访问终端、读取文件或制作备份。
 - 制作可供后续比对或分区恢复的备份时，读取两遍 eMMC 镜像并执行[离线校验](linux/docs/verification.zh-CN.md)。
-- Linux 无法启动但 BootROM 注入及裸机 USB 通信正常时，可按[分区恢复说明](bootrom/docs/recovery.zh-CN.md)从已有备份恢复受支持的用户分区。
+- Linux 无法启动但 BootROM 注入和 fastboot 通信正常时，可按[分区恢复说明](fastboot/docs/recovery.zh-CN.md)从已有备份恢复受支持的用户分区。
 
 ## 内容布局
 
@@ -25,7 +37,7 @@ linux/                      Linux 系统内操作
   docs/                     服务模式与各项操作说明
   examples/                 备份清单与分区表示例
   requirements.txt          Linux 路线 Python 依赖
-bootrom/                    BootROM 注入与裸机操作
+fastboot/                    Fastboot 工具（BootROM 注入启动）
   stage1/                   第一级：USB 传输与内存访问
   stage2/                   第二级：eMMC / fastboot；含离线测试
   host/                     电脑端：加载、备份比较与恢复
@@ -34,18 +46,18 @@ bootrom/                    BootROM 注入与裸机操作
   prebuilt/                 正式配套镜像与完整 SHA-256
   docs/                     接线、内存读取和分区恢复说明
   Makefile                  统一构建、检查、测试入口
-  requirements.txt          裸机路线 Python 依赖
+  requirements.txt          fastboot 路线 Python 依赖
 ```
 
 每条路线的命令从各自目录执行；Linux 环境、依赖仓库、备份和会话输出也以 `linux/` 为根。
-正式镜像集中在 `bootrom/prebuilt/`，不包含本地构建中间文件。构建和测试见 [开发说明](CONTRIBUTING.md)。
+正式镜像集中在 `fastboot/prebuilt/`，不包含本地构建中间文件。构建和测试见 [开发说明](CONTRIBUTING.md)。
 
 ## 当前范围
 
 - 现有文档的实机验证对象是 ZV-E10、固件 `30110_05.2025031501`，主机为 macOS。
-- 裸机分区读写、sparse、回读校验和恢复已有实机记录；约 4 分钟外部复位限制仍存在，需要分批操作。
+- fastboot 分区读写、sparse、回读校验和恢复已有实机记录；约 4 分钟的自动复位不再中断 fastboot 会话，fastboot 会一直保持到主动重启或断电，大分区操作可一次完成。
 - 恢复脚本支持 16 个用户分区，不处理 boot0/boot1、分区表或硬件故障。
-- Linux 路线读取的 BootROM 范围为 24 KiB；裸机 `peek` 允许的地址范围见[内存读取说明](bootrom/docs/exploration.zh-CN.md)。
+- Linux 路线读取的 BootROM 范围为 24 KiB；裸机 `peek` 允许的地址范围见[内存读取说明](fastboot/docs/exploration.zh-CN.md)。
 - 本仓库不包含 Sony 固件、BootROM 镜像、服务密钥表或设备备份。研究历史与原始证据保留在发布仓库之外。
 
 ## 来源与致谢

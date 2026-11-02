@@ -5,7 +5,7 @@
 This directory contains host tools for the ZV-E10 USB service interface: terminal access, file reads, eMMC backup, BootROM reads and offline verification. The camera must boot Linux and accept a USB service connection.
 
 Run the commands below from `linux/` (`cd linux` from the repository root).
-See the [BootROM route](../bootrom/README.md) for bare-metal injection and partition recovery.
+See the [fastboot route](../fastboot/README.md) for partition reads, writes and recovery; it is entered through Pico BootROM injection.
 Tested on firmware `30110_05.2025031501` with macOS.
 
 ## Layout
@@ -24,6 +24,7 @@ docs/                     Operation guides
 |---|---|---|
 | `host/zve10_backup_raw.py` | Read the Linux-visible user area and B0/B1 twice; save raw images and hashes | None |
 | `host/zve10_backup_files.py` | Copy selected ordinary files over the service terminal | None |
+| `host/zve10_get_file.py` | Read one explicit file through FileControl READ | None |
 | `host/zve10_verify.py` | Verify manifests, `SHA256SUMS`, and partition slices offline | None |
 | `host/zve10_terminal_server.py` + client | Service shell; read-only allow-list by default | None by default; write mode optional |
 | `host/zve10_read_file_jiritsu.py` | Optional Jiritsu `GET_FILE` reader | None |
@@ -79,7 +80,7 @@ disk and hashed again before being renamed into place.
 
 ## Limits
 
-- The Python tools here do not write back images or restore partitions; `../bootrom/`
+- The Python tools here do not write back images or restore partitions; `../fastboot/`
   does have a verified partition-level restore (see its README).
 - Raw images are what the Linux driver exposes, not a physical chip dump; no
   RPMB, OTP/eFuse, or hidden areas.
@@ -107,7 +108,7 @@ disk and hashed again before being renamed into place.
 - [Backup method](docs/backup-method.md)
 - [Verification](docs/verification.md)
 - [BootROM dump](docs/bootrom-dump.md)
-- [Fastboot / eMMC](../bootrom/README.md)
+- [Fastboot / eMMC](../fastboot/README.md)
 
 Not affiliated with or endorsed by Sony.
 

@@ -5,7 +5,7 @@
 本目录提供通过 ZV-E10 USB 服务接口使用的主机工具，包括终端连接、文件读取、eMMC 备份、BootROM 读取和离线校验。使用时相机需能够启动 Linux 并接受 USB 服务连接。
 
 以下命令均在 `linux/` 目录执行（先从仓库根目录运行 `cd linux`）。
-裸机注入与分区恢复见 [BootROM 路线](../bootrom/README.zh-CN.md)。
+分区读写与恢复见 [Fastboot 路线](../fastboot/README.zh-CN.md)；它通过 Pico 的 BootROM 注入进入。
 在固件 `30110_05.2025031501`、macOS 上实测。
 
 ## 目录
@@ -24,6 +24,7 @@ docs/                     操作说明
 |---|---|---|
 | `host/zve10_backup_raw.py` | 读取内核暴露的用户区和 B0/B1，各读两遍，保存原始镜像和哈希 | 无 |
 | `host/zve10_backup_files.py` | 通过服务终端复制指定普通文件 | 无 |
+| `host/zve10_get_file.py` | 通过 FileControl READ 读取单个指定文件 | 无 |
 | `host/zve10_verify.py` | 离线校验 manifest、`SHA256SUMS` 和分区切片 | 无 |
 | `host/zve10_terminal_server.py` + 客户端 | 服务 shell；默认只读白名单 | 默认无；可选写模式 |
 | `host/zve10_read_file_jiritsu.py` | 可选的 Jiritsu `GET_FILE` 文件读取 | 无 |
@@ -76,7 +77,7 @@ backups/zve10-raw-emmc-<时间戳>/
 
 ## 限制
 
-- 本目录的 Python 工具没有镜像写回或分区恢复功能；`../bootrom/` 提供分区恢复
+- 本目录的 Python 工具没有镜像写回或分区恢复功能；`../fastboot/` 提供分区恢复
   （见其 README）。
 - 原始镜像是 Linux 驱动暴露的内容，不是物理芯片转储；不含 RPMB、OTP/eFuse 或隐藏区域。
 - 不是原子快照：rw 分区在两遍读取之间可能变化。两份镜像都会保留，差异如实报告。
@@ -99,7 +100,7 @@ backups/zve10-raw-emmc-<时间戳>/
 - [备份方法](docs/backup-method.zh-CN.md)
 - [校验](docs/verification.zh-CN.md)
 - [BootROM dump](docs/bootrom-dump.zh-CN.md)
-- [Fastboot / eMMC](../bootrom/README.zh-CN.md)
+- [Fastboot / eMMC](../fastboot/README.zh-CN.md)
 
 与 Sony 无关，也未获 Sony 认可。
 
