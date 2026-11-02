@@ -20,7 +20,7 @@ logs/
 
 # Approved self-built payloads only
 !linux/helpers/bootrom-reader/read_page.elf
-!bootrom/prebuilt/*.bin
+!fastboot/prebuilt/*.bin
 
 # Rebuildable intermediate files
 build/

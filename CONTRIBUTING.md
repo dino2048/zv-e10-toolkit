@@ -12,7 +12,7 @@ drills, private device data and unsupported payload variants belong outside it.
 From the repository root, with Python 3.10+, make and clang:
 
 ```sh
-make -C bootrom test PYTHON=python3
+make -C fastboot test PYTHON=python3
 ```
 
 This checks release payload hashes and capabilities, C partition/eMMC/fastboot
@@ -32,29 +32,36 @@ Different compiler versions may produce different bytes or addresses; the
 fixed stage1 hash deliberately rejects an unreviewed ABI change.
 
 ```sh
-make -C bootrom build PYTHON=python3
-python3 -B bootrom/tools/check_abi.py --build --image
-cmp bootrom/stage1/build/fastboot.bin bootrom/prebuilt/stage1.bin
-cmp bootrom/stage2/build-flash/stage2-fastboot-flash.bin bootrom/prebuilt/stage2-flash.bin
-make -C bootrom clean
+make -C fastboot build PYTHON=python3
+python3 -B fastboot/tools/check_abi.py --build --image
+cmp fastboot/stage1/build/fastboot.bin fastboot/prebuilt/stage1.bin
+cmp fastboot/stage2/build-flash/stage2-fastboot-flash.bin fastboot/prebuilt/stage2-flash.bin
+make -C fastboot clean
 ```
 
-`build/` directories contain local intermediates only. `make -C bootrom clean` preserves
+`build/` directories contain local intermediates only. `make -C fastboot clean` preserves
 `prebuilt/`. Never replace release images just to silence a hash or ABI failure.
-Changes to stage1 require reviewing `bootrom/stage2/include/usb_link.h`, the pinned hash in
-`bootrom/tools/check_abi.py`, and the stage2 pair. A changed image needs fresh hardware
+Changes to stage1 require reviewing `fastboot/stage2/include/usb_link.h`, the pinned hash in
+`fastboot/tools/check_abi.py`, and the stage2 pair. A changed image needs fresh hardware
 validation before publication. Update the release manifest and `SHA256SUMS`
 together with any approved payload change.
 
 `prebuilt/` 仅存放已验证配套镜像。源码清理应重建出原字节；功能修改若改变镜像，
 应重新进行实机验证后才更新正式镜像和校验清单。
 
+当前配对为 stage1 7636 B + stage2-flash 10228 B。stage2 入口包含一次
+Darwin `0x16` 保活读，用于延长单次会话。
+操作流程与发布验证结果见
+[fastboot/docs/long-session.zh-CN.md](fastboot/docs/long-session.zh-CN.md) /
+[English](fastboot/docs/long-session.md)。
+
 ## Other components / 其他组件
 
 - Linux installation: `linux/scripts/setup.sh` creates a local environment and pins Sony-PMCA-RE to commit `a82f5baaa8e9c3d9f28f94699e860fb2e48cc8e0`.
 - Linux BootROM helper: see [build instructions](linux/helpers/bootrom-reader/README.md). The 460-byte ELF is an intentional runtime asset; it is not a discarded intermediate.
-- Pico firmware: see [Pico setup](bootrom/pico/README.md). The checked-in PIO header is required source. Build UF2 files outside the repository.
+- Pico firmware: see [Pico setup](fastboot/pico/README.md). The checked-in PIO header is required source. Build UF2 files outside the repository.
 - Keep English and Chinese user guides consistent, including paths, tested firmware, supported recovery targets and limitations.
 
-No automated check replaces hardware validation. This cleanup preserves the
-two published payload binaries; it does not claim a new hardware session.
+No automated check replaces hardware validation. The current published pair has
+been smoke-tested on hardware: 300 s idle after stage2 load, eMMC init and a
+12 MB fetch.
