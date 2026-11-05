@@ -9,6 +9,9 @@ Sony-PMCA-RE.
   `054c:0d95`.
 - macOS: raw USB access, granted by the launchers through one administrator
   popup (`osascript` + `launchctl asuser`).
+- Linux: raw USB access, granted by the launchers through `pkexec`, or through
+  `sudo` when polkit is unavailable. The same privileged process remains active
+  while the camera re-enumerates in service mode.
 - `libusb`. `zve10_common` checks `LIBUSB_PATH`, then Homebrew's locations,
   before falling back to the system lookup.
 
