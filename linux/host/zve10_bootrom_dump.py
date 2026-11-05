@@ -3,7 +3,7 @@
 
 Method (proven on firmware 30110_05.2025031501):
 
-1. upload the 460-byte ARM helper in helpers/bootrom-reader/ to /tmp_bt (tmpfs);
+1. upload the 460-byte ARM helper in helpers/bootrom-reader/ to an allow-listed tmpfs;
 2. run it once per 4 KiB page; it opens /dev/mem read-only, maps
    0xffff0000 + index * 0x1000, and prints 4096 bytes as hex;
 3. repeat all pages for a second pass and compare;
@@ -37,6 +37,7 @@ PAGE = 0x1000
 MAX_PAGES = 6
 HELPER = common.ROOT / "helpers" / "bootrom-reader" / "read_page.elf"
 CHUNK = 114
+HELPER_TMPFS_CHOICES = ("/tmp_bt", "/tmp_network", "/tmp_ipsec")
 
 
 def hex_bytes(output: str) -> str:
@@ -52,21 +53,23 @@ def shell(dev, name: str, command: str, timeout: float = 30.0) -> dict:
     return common.command(dev, name, command, timeout)
 
 
-def check_mounts(dev) -> None:
+def check_mounts(dev, helper_tmpfs: str) -> None:
     result = shell(dev, "mounts", "busybox cat /proc/mounts", 20)
     if result["exit_code"] != 0:
         raise RuntimeError("cannot read /proc/mounts")
-    if not re.search(r"/tmp_bt\s+tmpfs\b", result["output"]):
-        raise RuntimeError("/tmp_bt is not tmpfs; refusing to write the helper")
+    pattern = r"(?:^|\n)\S+\s+%s\s+tmpfs\b" % re.escape(helper_tmpfs)
+    if not re.search(pattern, result["output"]):
+        raise RuntimeError("%s is not tmpfs; refusing to write the helper" % helper_tmpfs)
 
 
-def make_helper_dir(dev) -> str:
-    result = shell(dev, "mktemp", "busybox mktemp -d /tmp_bt/br.XXXXXX", 20)
+def make_helper_dir(dev, helper_tmpfs: str) -> str:
+    prefix = helper_tmpfs + "/br."
+    result = shell(dev, "mktemp", "busybox mktemp -d %s/br.XXXXXX" % helper_tmpfs, 20)
     if result["exit_code"] != 0:
         raise RuntimeError("mktemp failed")
     for line in result["output"].replace("\r", "").splitlines():
         line = line.strip()
-        if line.startswith("/tmp_bt/br.") and not any(c in line for c in " '\"`$;&|"):
+        if line.startswith(prefix) and not any(c in line for c in " '\"`$;&|"):
             return line
     raise RuntimeError("unexpected mktemp output: %r" % result["output"])
 
@@ -139,7 +142,9 @@ def main() -> None:
     parser.add_argument("--passes", type=int, default=2, choices=(1, 2),
                         help="1 for a quick read, 2 for the verified two-pass method")
     parser.add_argument("--keep-helper", action="store_true",
-                        help="do not delete the helper from /tmp_bt (debugging)")
+                        help="do not delete the helper from the selected tmpfs (debugging)")
+    parser.add_argument("--helper-tmpfs", choices=HELPER_TMPFS_CHOICES, default="/tmp_bt",
+                        help="existing tmpfs used for the temporary helper (default: /tmp_bt)")
     parser.add_argument("--owner-authorized-exec", action="store_true",
                         help="required: confirms you understand this executes code on the camera")
     parser.add_argument("--driver", default="libusb")
@@ -167,8 +172,9 @@ def main() -> None:
         "helper": {"file": str(HELPER.relative_to(common.ROOT)),
                    "size": HELPER.stat().st_size,
                    "sha256": hashlib.sha256(HELPER.read_bytes()).hexdigest()},
-        "helper_tmpfs": "/tmp_bt",
-        "camera_side_writes": "temporary helper in /tmp_bt (tmpfs); no eMMC/flash/config writes",
+        "helper_tmpfs": args.helper_tmpfs,
+        "camera_side_writes": "temporary helper in %s (tmpfs); no eMMC/flash/config writes"
+                              % args.helper_tmpfs,
         "pass_data": [],
         "two_pass_match": None,
         "completed": False,
@@ -183,8 +189,8 @@ def main() -> None:
             attempted = True
             camera.setTerminalEnable(True)
             common.drain(camera.dev, 1.0)
-            check_mounts(camera.dev)
-            helper_dir = make_helper_dir(camera.dev)
+            check_mounts(camera.dev, args.helper_tmpfs)
+            helper_dir = make_helper_dir(camera.dev, args.helper_tmpfs)
             result["helper_dir"] = helper_dir
             result["helper_upload"] = upload(camera.dev, helper_dir)
 
