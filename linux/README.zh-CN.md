@@ -26,6 +26,7 @@ docs/                     操作说明
 | `host/zve10_backup_files.py` | 通过服务终端复制指定普通文件 | 无 |
 | `host/zve10_get_file.py` | 通过 FileControl READ 读取单个指定文件 | 无 |
 | `host/zve10_verify.py` | 离线校验 manifest、`SHA256SUMS` 和分区切片 | 无 |
+| `host/zve10_usb_stream_probe.py` | 验证官方 UVC 视频和 USB Audio，不输出相机序列号或保存媒体 | 无 |
 | `host/zve10_terminal_server.py` + 客户端 | 服务 shell；默认只读白名单 | 默认无；可选写模式 |
 | `host/zve10_read_file_jiritsu.py` | 可选的 Jiritsu `GET_FILE` 文件读取 | 无 |
 | `host/zve10_bootrom_dump.py` | 通过 `/dev/mem` 两遍读取 BootROM | `/tmp_bt` tmpfs 中的临时助手 |
@@ -44,6 +45,7 @@ docs/                     操作说明
 ```sh
 ./scripts/run_raw_backup.sh
 ./scripts/run_file_backup.sh --phase critical
+./scripts/probe_usb_streaming.sh --duration 10
 
 .venv/bin/python host/zve10_verify.py manifest \
   --manifest backups/zve10-raw-emmc-*/manifest.json
@@ -104,6 +106,7 @@ backups/zve10-raw-emmc-<时间戳>/
 - [备份方法](docs/backup-method.zh-CN.md)
 - [校验](docs/verification.zh-CN.md)
 - [BootROM dump](docs/bootrom-dump.zh-CN.md)
+- [USB 串流](docs/usb-streaming.zh-CN.md)
 - [Fastboot / eMMC](../fastboot/README.zh-CN.md)
 
 与 Sony 无关，也未获 Sony 认可。
