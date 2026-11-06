@@ -27,7 +27,7 @@ Sony-PMCA-RE.
 
 Service authentication itself may update `/setting/.etools` and
 `/setting/.hasp`. The toolkit does not perform those writes. It does not upload
-files, create mounts, or write block devices, and the session is not persistent.
+files, create mounts, or write block devices, and ordinary one-shot callbacks end the service connection when they return. The terminal server keeps its callback open until close/timeout; structured Backup actions can write settings only with explicit write mode. See [Backup properties](backup-properties.md).
 
 ## Boundaries
 

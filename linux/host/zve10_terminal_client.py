@@ -63,6 +63,8 @@ def submit(session: Path, payload: dict, timeout: float = 45.0) -> dict:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--session-dir", help="session directory (default: session/latest.txt)")
+    parser.add_argument("--request-json", help="submit one structured action and exit")
+    parser.add_argument("--timeout", type=float, default=45.0)
     args = parser.parse_args()
     session = resolve(args.session_dir)
 
@@ -76,6 +78,13 @@ def main() -> None:
         time.sleep(0.5)
     else:
         raise SystemExit("session was not ready within 60 seconds")
+
+    if args.request_json:
+        result = submit(session, json.loads(args.request_json), timeout=args.timeout)
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        if "error" in result or "refused" in result:
+            raise SystemExit(1)
+        return
 
     state = read_state(session)
     print("connected; mode: " + ("read-write" if state.get("write_mode") else "read-only"),

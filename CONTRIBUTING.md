@@ -65,3 +65,16 @@ Darwin `0x16` 保活读，用于延长单次会话。
 No automated check replaces hardware validation. The current published pair has
 been smoke-tested on hardware: 300 s idle after stage2 load, eMMC init and a
 12 MB fetch.
+
+## Backup property actions / Backup 属性操作
+
+```sh
+python3 -B -m unittest discover -s linux/tests -v
+python3 -B linux/host/zve10_terminal_server.py --self-test
+```
+
+These checks exercise guarded property writes, private original snapshots,
+readback and the existing persistent session lifecycle with a fake camera.
+They do not import USB dependencies or access hardware.
+
+以上检查通过模拟相机验证原值校验、私密快照、写后读回及原有持久会话的关闭流程，不访问设备。

@@ -13,6 +13,10 @@ Default mode is read-only:
 catastrophic-command denylist always stays in place.  These checks are
 guardrails, not a security boundary.
 
+Structured backup-read/backup-write actions reuse Sony-PMCA-RE on the same
+connection. Writes require --owner-authorized-write; see docs/backup-properties.md.
+An optional REQUEST_HANDLER supports project actions without another server.
+
 This tool provides a root service shell on the camera.  It does not read or
 write the eMMC images; use the backup tools for that.
 """
@@ -50,6 +54,9 @@ METACHARS = re.compile(r"[;|&<>`]|\$\(")
 FIND_WRITE = re.compile(
     r"\bfind\b.*\s(-exec|-execdir|-delete|-ok|-okdir|-fprint|-fprintf|-fls)\b"
 )
+
+# Optional project-specific actions on this same authenticated connection.
+REQUEST_HANDLER = None
 
 CLIENT_UID = None
 CLIENT_GID = None
@@ -230,9 +237,26 @@ def serve(session: Path, write_mode: bool, allow_module_ops: bool,
                                 {"action": action, "accepted": True})
                         closing = True
                         break
+                    handler = REQUEST_HANDLER
+                    if handler is None and action in ("backup-read", "backup-write"):
+                        from zve10_backup_properties import dispatch
+                        handler = dispatch
+                    if handler is not None and action != "shell":
+                        try:
+                            state["state"] = "executing"
+                            publish(session / "state.json", state)
+                            result = handler(camera, request, session, write_mode)
+                            state["commands_completed"] += 1
+                            publish(responses / request_path.name, result)
+                            state["state"] = "ready"
+                            publish(session / "state.json", state)
+                        except Exception as exc:
+                            publish(responses / request_path.name, {"error": str(exc)})
+                            raise
+                        continue
                     if action != "shell":
                         publish(responses / request_path.name,
-                                {"error": "only shell and close are accepted"})
+                                {"error": "only shell, backup-read, backup-write and close are accepted"})
                         continue
                     command = request.get("command", "")
                     if not isinstance(command, str):

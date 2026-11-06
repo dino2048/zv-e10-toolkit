@@ -64,6 +64,15 @@ Full shell:
 ./scripts/run_terminal.sh --owner-authorized-write
 ```
 
+## Backup properties and project extensions
+
+The existing persistent terminal server also accepts structured `backup-read` and
+owner-authorized `backup-write` actions through the same client/connection. These
+are settings properties, not disk images. See [Backup property operations and
+extension API](docs/backup-properties.md) for original-value guards, private
+snapshots, persistence/readback, and the optional project action hook. The new
+integration has offline tests only; no new camera test was performed.
+
 ## Raw backup output
 
 ```
