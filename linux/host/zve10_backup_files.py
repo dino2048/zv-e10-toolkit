@@ -20,6 +20,7 @@ import base64
 import hashlib
 import json
 import os
+import posixpath
 import re
 import time
 from pathlib import Path
@@ -108,32 +109,107 @@ def transfer(dev, camera_path: str, size: int, destination: Path) -> str:
     return digest.hexdigest()
 
 
+# Only camera-shell builtins: this firmware has no find or stat applet.
+# NUL-separated records preserve spaces and distinguish files/directories.
+DIRECTORY_LOOP = (
+    '[ ! -L "$d" ]&&[ -d "$d" ]&&[ -r "$d" ]&&[ -x "$d" ]&&{ '
+    'for p in "$d"/* "$d"/.[!.]* "$d"/..?*;do '
+    '[ -L "$p" ]||{ [ -f "$p" ]&&printf \'F%s\\0\' "$p";'
+    '[ -d "$p" ]&&printf \'D%s\\0\' "$p";};done;true;}'
+)
+
+
+def mount_devices(dev) -> dict[str, str]:
+    result = common.command(dev, "inventory_mounts",
+                            "busybox cat /proc/self/mountinfo", COMMAND_TIMEOUT)
+    if result["exit_code"] != 0:
+        raise RuntimeError("cannot read mountinfo: " + result["output"].strip())
+    mounts = {}
+    for line in result["output"].splitlines():
+        if not line.strip():
+            continue
+        fields = line.split()
+        if len(fields) < 10 or "-" not in fields or not re.fullmatch(r"\d+:\d+", fields[2]):
+            raise RuntimeError("invalid mountinfo record")
+        mountpoint = re.sub(r"\\([0-7]{3})", lambda m: chr(int(m.group(1), 8)), fields[4])
+        mounts[mountpoint] = fields[2]
+    if "/" not in mounts:
+        raise RuntimeError("mountinfo has no root filesystem")
+    return mounts
+
+
+def device_for(path: str, mounts: dict[str, str]) -> str:
+    matches = [mount for mount in mounts
+               if mount == "/" or path == mount or path.startswith(mount.rstrip("/") + "/")]
+    return mounts[max(matches, key=len)]
+
+
+def directory_entries(dev, directory: str) -> list[tuple[str, str]]:
+    # Keep terminal requests short. This tool owns one connection and executes
+    # the path assignment and listing sequentially.
+    assigned = common.command(dev, "inventory_path", "d=" + common.shquote(directory), COMMAND_TIMEOUT)
+    if assigned["exit_code"] != 0:
+        raise RuntimeError("cannot select directory: " + assigned["output"].strip())
+    result = common.command(dev, "inventory", DIRECTORY_LOOP, COMMAND_TIMEOUT)
+    if result["exit_code"] != 0:
+        raise RuntimeError("directory missing, not readable/searchable, or a symlink: "
+                           + directory + ": " + result["output"].strip())
+    body = result["output"].rstrip("\r\n")
+    if not body:
+        return []
+    if not body.endswith("\0"):
+        raise RuntimeError("incomplete directory listing: " + directory)
+    entries = []
+    for record in body[:-1].split("\0"):
+        kind, path = record[:1], record[1:]
+        if directory == "/" and path.startswith("//"):
+            path = path[1:]  # shell glob "$d"/* prefixes root entries with //
+        # Terminal commands use ASCII; reject unsupported names explicitly.
+        if (kind not in ("F", "D") or not path.isascii() or "\r" in path
+                or "\n" in path or posixpath.dirname(path) != directory
+                or posixpath.basename(path) in ("", ".", "..")):
+            raise RuntimeError("invalid/unsupported directory entry under " + directory)
+        entries.append((kind, path))
+    return entries
+
+
 def inventory(dev, roots) -> tuple[list[str], list[dict]]:
     files: list[str] = []
     errors: list[dict] = []
     seen = set()
+    try:
+        mounts = mount_devices(dev)
+    except Exception as exc:
+        return files, [{"root": "/proc/self/mountinfo", "error": str(exc)}]
     for root in roots:
         if root == "/version.txt":
-            candidates = [root]
-        else:
-            try:
-                result = run(
-                    dev,
-                    "inventory",
-                    "busybox find %s -xdev -type f -print 2>/dev/null" % common.shquote(root),
-                )
-                candidates = [
-                    line.strip()
-                    for line in result["output"].splitlines()
-                    if line.strip().startswith("/")
-                ]
-            except Exception as exc:  # noqa: BLE001
-                errors.append({"root": root, "error": repr(exc)})
+            if root not in seen:
+                seen.add(root)
+                files.append(root)
+            continue
+        root = posixpath.normpath(root)
+        root_device = device_for(root, mounts)
+        pending = [root]
+        visited = set()
+        while pending:
+            directory = pending.pop()
+            if directory in visited:
                 continue
-        for path in candidates:
-            if path not in seen:
-                seen.add(path)
-                files.append(path)
+            visited.add(directory)
+            try:
+                entries = directory_entries(dev, directory)
+            except Exception as exc:
+                errors.append({"root": root, "path": directory, "error": str(exc)})
+                continue
+            for kind, path in entries:
+                # Like find -xdev, do not descend/read entries on another device.
+                if device_for(path, mounts) != root_device:
+                    continue
+                if kind == "D":
+                    pending.append(path)
+                elif path not in seen:
+                    seen.add(path)
+                    files.append(path)
     return files, errors
 
 
@@ -207,7 +283,7 @@ def backup(dev, out: Path, phase: str, *, max_file_bytes: int, max_files: int,
                 raise RuntimeError("hash mismatch for " + camera_path)
         except Exception as exc:  # noqa: BLE001
             record["error"] = repr(exc)
-    result["completed"] = all("error" not in item for item in result["files"])
+    result["completed"] = not errors and all("error" not in item for item in result["files"])
     return result
 
 
@@ -235,6 +311,10 @@ def write_report(out: Path, result: dict) -> None:
                 "OK" if item.get("match") else item.get("error", "skipped"),
             )
         )
+    if result.get("inventory_errors"):
+        lines += ["", "## Inventory errors", ""]
+        for error in result["inventory_errors"]:
+            lines.append("- `%s`: %s" % (error.get("path", error["root"]), error["error"]))
     lines += [
         "",
         "## Caveats",
@@ -313,6 +393,8 @@ def main() -> None:
         write_report(out, result)
         common.restore_tree_owner(out)
         print("BACKUP_OUT:", out, flush=True)
+    if not result.get("completed"):
+        raise SystemExit(1)
         print("BACKUP_REPORT:", out / "REPORT.md", flush=True)
 
 

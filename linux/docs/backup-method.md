@@ -62,3 +62,23 @@ Both passes are kept. Differences are reported, never overwritten.
 - The image is what the driver exposes, not a verified physical layout.
 - No RPMB, OTP/eFuse, or hidden area.
 - No write-back or restore test; this is not a proven rescue image.
+
+## File-level backup companion
+
+`run_file_backup.sh --phase inventory` lists ordinary files; it does not read
+whole eMMC images. Other file phases copy discovered files using the service
+terminal. The camera firmware has no BusyBox `find` applet: discovery uses shell
+builtins, includes hidden entries, skips symlinks and uses mountinfo device IDs
+to stay on each selected root's filesystem. No program is installed on the camera.
+
+An unreadable/missing directory or malformed listing is recorded in
+`inventory_errors`, shown in `REPORT.md`, sets `completed` false and causes a
+nonzero process exit. Successfully copying another file does not erase that error.
+
+Hardware validation on ZV-E10, 2026-11-06: all configured roots yielded 1,139
+files without inventory errors; two hidden `/setting` entries were included.
+Root-filesystem traversal stayed off the other mounted filesystems. Version
+file (19 B) and `libWlanResource.so` (35,240 B, two chunks) readback matched
+camera SHA-256 values. A deliberately missing root was reported incomplete even
+though `/version.txt` copied successfully. The session closed normally, with
+no file writes or mount changes requested by this test.
