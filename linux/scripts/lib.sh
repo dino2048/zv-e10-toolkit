@@ -1,5 +1,5 @@
 #!/bin/sh
-# Shared helpers for the macOS launchers. Source this file; do not run it.
+# Shared privilege helper for the macOS and Linux launchers. Source this file; do not run it.
 set -eu
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 REPO_DIR=$(dirname "$SCRIPT_DIR")
@@ -7,7 +7,9 @@ REPO_DIR=$(dirname "$SCRIPT_DIR")
 admin_run() {
     launcher=$1
     shift
-    /usr/bin/osascript - "$(id -u)" "$launcher" "$@" <<'APPLESCRIPT'
+    case $(uname -s) in
+    Darwin)
+        /usr/bin/osascript - "$(id -u)" "$launcher" "$@" <<'APPLESCRIPT'
 on run argv
     set uidText to item 1 of argv
     set launcherPath to item 2 of argv
@@ -20,4 +22,19 @@ on run argv
     do shell script ("/bin/launchctl asuser " & quoted form of uidText & " " & commandText) with administrator privileges
 end run
 APPLESCRIPT
+        ;;
+    Linux)
+        if command -v pkexec >/dev/null 2>&1; then
+            exec pkexec "$launcher" "$@"
+        elif command -v sudo >/dev/null 2>&1; then
+            exec sudo -- "$launcher" "$@"
+        fi
+        echo "Linux privilege helper not found; install polkit or sudo" >&2
+        return 1
+        ;;
+    *)
+        echo "unsupported host operating system: $(uname -s)" >&2
+        return 1
+        ;;
+    esac
 }

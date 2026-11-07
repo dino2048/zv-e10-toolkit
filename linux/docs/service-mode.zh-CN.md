@@ -6,6 +6,8 @@
 
 - 相机处于 **USB 海量存储**模式（不是自动，也不是 MTP），枚举为 `054c:0d95`。
 - macOS 上需要原始 USB 访问权限；启动脚本通过 `osascript` + `launchctl asuser` 触发一次管理员弹窗。
+- Linux 上也需要原始 USB 访问权限；启动脚本优先通过 `pkexec` 提权，若 polkit 不可用则使用
+  `sudo`。相机重新枚举为服务模式时，同一个提权进程会继续运行。
 - 需要 `libusb`。`zve10_common` 依次检查 `LIBUSB_PATH`、Homebrew 路径，最后回退到系统查找。
 
 ## 流程
