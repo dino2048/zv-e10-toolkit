@@ -4,9 +4,9 @@ Experimental two-pass read of the ZV-E10 BootROM through the service terminal.
 
 ## Method
 
-1. The host checks the firmware baseline and confirms that `/tmp_bt` is tmpfs.
+1. The host checks the firmware baseline and confirms the selected helper path is tmpfs.
 2. It uploads `helpers/bootrom-reader/read_page.elf` (460 bytes) into a fresh
-   `/tmp_bt/br.XXXXXX` directory, then verifies size and SHA-256.
+   `br.XXXXXX` directory below that tmpfs, then verifies size and SHA-256.
 3. The helper is run once per 4 KiB page. It opens `/dev/mem` read-only, maps
    `0xffff0000 + index * 0x1000`, prints 4096 bytes as hex, and exits.
 4. All pages are read twice and compared, then written to `dump.bin`.
@@ -44,7 +44,9 @@ Options:
 
 - `--pages 1..6` — number of 4 KiB pages (default 6);
 - `--passes 1|2` — 2 for the verified two-pass method (default 2);
-- `--keep-helper` — leave the helper in `/tmp_bt` for debugging.
+- `--helper-tmpfs /tmp_bt|/tmp_network|/tmp_ipsec` — select an existing
+  allow-listed tmpfs when `/tmp_bt` is not mounted (default `/tmp_bt`);
+- `--keep-helper` — leave the helper in the selected tmpfs for debugging.
 
 Output:
 
@@ -59,7 +61,7 @@ backups/zve10-bootrom-<timestamp>/
 ## Requirements and limits
 
 - Camera in USB mass-storage mode; one administrator popup; macOS launchers.
-- `/tmp_bt` must be a tmpfs mount. The tool refuses otherwise.
+- The selected helper path must be a tmpfs mount. The tool refuses otherwise.
 - `--owner-authorized-exec` is required: this executes code on the camera.
 - The proven range is small and the helper is fixed to it. Extending the range
   requires rebuilding the helper and re-verifying it.
