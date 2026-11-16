@@ -10,6 +10,7 @@ from unittest.mock import Mock, patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'host'))
 import zve10_jiritsu as jit
 import zve10_backup_raw as raw
+import zve10_backup_session as backup
 
 
 class BufferTests(unittest.TestCase):
@@ -72,7 +73,14 @@ class BufferTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, '32 MiB'):
             with b.backup_buffer(4096):
                 self.fail('must not read')
-        self.assertEqual(b.run.call_count, 1)
+        commands = [call.args[0] for call in b.run.call_args_list]
+        self.assertFalse(any('mkdir' in cmd or 'mount -t' in cmd for cmd in commands))
+
+    def test_sums_file_uses_lf_endings_for_portable_checking(self):
+        with tempfile.TemporaryDirectory() as directory:
+            backup.write_sums(directory, [{'sha256': 'a' * 64, 'file': 'nflasha.read1.bin'}])
+            data = (Path(directory) / 'SHA256SUMS').read_bytes()
+        self.assertEqual(data, b'a' * 64 + b'  nflasha.read1.bin\n')
 
     def test_bad_saved_hash_keeps_part_and_never_promotes(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -1,5 +1,6 @@
 """Regression checks for the camera-tested shell-builtin inventory path."""
 from pathlib import Path
+import os
 import subprocess
 import sys
 import tempfile
@@ -10,6 +11,7 @@ import zve10_backup_files as backup
 
 
 class Tests(unittest.TestCase):
+    @unittest.skipIf(os.name == 'nt', 'requires POSIX /bin/sh and symlink privileges')
     def test_shell_listing_without_find_stat_or_ls(self):
         with tempfile.TemporaryDirectory(prefix='inventory space-') as temp:
             root=Path(temp);(root/'ordinary').write_text('x');(root/'.hidden').write_text('x')

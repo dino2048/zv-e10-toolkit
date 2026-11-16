@@ -30,12 +30,24 @@ TERMINAL_OUTPUT_LIMIT = 128 * 1024
 
 
 def _patch_libusb() -> None:
-    """Point pyusb at a usable libusb on macOS.
+    """Point PyUSB at a host libusb DLL/dylib when discovery is insufficient.
 
-    Set LIBUSB_PATH to override.  On Linux the system library is normally found
-    without help, so this function does nothing when no candidate exists.
+    LIBUSB_PATH selects libusb 1.0; LIBUSB0_PATH selects libusb-win32 0.1.
+    On Linux the system library is normally found without help.
     """
     candidates = []
+    if os.name == 'nt' and os.environ.get('ZVE10_LIBUSB1') == '1':
+        try:
+            import libusb_package
+            # The bundled file is libusb-1.0.dll; asking for "usb-1.0" matches
+            # nothing on Windows because the package does not strip the "lib".
+            # Opt-in on purpose: PyUSB uses the first backend that loads, and a
+            # camera on the libusb-win32 (libusb0) driver would disappear from
+            # libusb 1.0. Enable this only after moving both interfaces to
+            # WinUSB or libusbK.
+            candidates.append(libusb_package.find_library('libusb-1.0'))
+        except ImportError:
+            pass
     explicit = os.environ.get("LIBUSB_PATH")
     if explicit:
         candidates.append(explicit)
@@ -43,15 +55,22 @@ def _patch_libusb() -> None:
         "/opt/homebrew/opt/libusb/lib/libusb-1.0.dylib",
         "/usr/local/opt/libusb/lib/libusb-1.0.dylib",
     ]
-    path = next((c for c in candidates if Path(c).is_file()), None)
-    if path is None:
+    path = next((c for c in candidates if c and Path(c).is_file()), None)
+    legacy = os.environ.get("LIBUSB0_PATH")
+    legacy = legacy if legacy and Path(legacy).is_file() else None
+    if path is None and legacy is None:
         return
 
     original = ctypes.util.find_library
 
     def find_library(name: str):
-        if name in ("usb-1.0", "libusb-1.0", "usb"):
-            return path
+        base = name.removesuffix('.dll')
+        if base in ("usb-1.0", "libusb-1.0", "usb"):
+            if path is not None:
+                return path
+        if base in ("usb-0.1", "libusb0", "usb"):
+            if legacy is not None:
+                return legacy
         return original(name)
 
     ctypes.util.find_library = find_library
@@ -74,6 +93,11 @@ def connect(complete, driver: str = "libusb") -> None:
             "Sony-PMCA-RE or its dependencies are unavailable. Run scripts/setup.sh "
             "from linux/, or set PYTHONPATH to a checkout. Missing import: " + str(exc)
         ) from exc
+    # Windows needs length-delimited replies; see host/zve10_senser.py.
+    # ZVE10_SENSER_FRAMING=stock restores the vendor reader for one run.
+    import zve10_senser
+    if zve10_senser.install():
+        print("Service reply framing: length-delimited", flush=True)
     senserShellCommand(driverName=driver, complete=complete)
 
 
@@ -188,9 +212,14 @@ def default_out(prefix: str) -> Path:
     return Path.cwd() / "backups" / (prefix + time.strftime("%Y%m%d-%H%M%S"))
 
 
+def host_is_root() -> bool:
+    """Only POSIX hosts use root ownership handoff for session files."""
+    return hasattr(os, "geteuid") and os.geteuid() == 0
+
+
 def restore_owner(*paths) -> None:
     """When running as root, hand output back to the repository owner."""
-    if os.geteuid() != 0:
+    if not host_is_root():
         return
     stat = ROOT.stat()
     for path in paths:
@@ -202,7 +231,7 @@ def restore_owner(*paths) -> None:
 
 def restore_tree_owner(root: Path) -> None:
     """Recursively hand an output tree back to the repository owner."""
-    if os.geteuid() != 0:
+    if not host_is_root():
         return
     stat = ROOT.stat()
     for path in [root, *root.rglob("*")]:

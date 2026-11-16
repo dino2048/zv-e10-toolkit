@@ -81,6 +81,57 @@ class Tests(unittest.TestCase):
             read.assert_not_called()
         self.assertIn('rm -f',b.run.call_args.args[0])
 
+    def test_regular_file_chunks_verify_size_hash_and_ram_mount(self):
+        b = self.backend()
+        data = b'known' * 1000
+        checksum = hashlib.sha256(data).hexdigest() + '  regular-chunk\n'
+        b.run = Mock(side_effect=['none /tmp_network tmpfs rw,size=1024k 0 0', '',
+                                  str(len(data)), checksum, ''])
+        with patch.object(jit, 'read_file', return_value=data), \
+             patch.object(jit.common, 'set_terminal_timeout') as timeout:
+            self.assertEqual(b.read_regular_chunks('/usr/lib/example.so', len(data)), data)
+            timeout.assert_called_once_with(b.camera, 30000)
+        self.assertEqual(b.status['regular_read_bytes'], len(data))
+        self.assertIn('/tmp_network/', b.run.call_args.args[0])
+        self.assertFalse(any('/tmp/jiritsu/' in call.args[0] for call in b.run.call_args_list))
+
+    def test_regular_file_chunk_size_selection(self):
+        b = self.backend()
+        b.run = Mock(side_effect=['none /tmp_network tmpfs rw,size=1024k 0 0', '', '4',
+                                  hashlib.sha256(b'data').hexdigest() + '  regular-chunk\n', ''])
+        with patch.object(jit, 'read_file', return_value=b'data'):
+            self.assertEqual(b.read_regular_chunks('/usr/lib/example.so', 4, 512), b'data')
+        self.assertEqual(b.status['regular_chunk_kib'], 512)
+        self.assertIn('/tmp_network/', b.run.call_args.args[0])
+
+    def test_regular_file_enables_fast_poll_and_restores_it(self):
+        b = self.backend()
+        b.run = Mock(side_effect=['none /tmp_network tmpfs rw,size=1024k 0 0', '', '1',
+                                  hashlib.sha256(b'x').hexdigest() + '  regular-chunk\n', ''])
+        with patch.object(jit, 'read_file', return_value=b'x'):
+            b.read_regular_chunks('/usr/lib/example.so', 1)
+        commands = [call.args[0] for call in b.run.call_args_list]
+        self.assertIn('ZV_POLL=0.01', commands[1])
+        self.assertIn('ZV_POLL=1', commands[-1])
+
+    def test_large_regular_chunks_need_a_verified_dedicated_buffer(self):
+        b = self.backend()
+        b.run = Mock()
+        with self.assertRaisesRegex(ValueError, 'dedicated tmpfs'):
+            b.read_regular_chunks('/usr/lib/example.so', 4, 4096)
+        with self.assertRaisesRegex(ValueError, 'Invalid'):
+            b.read_regular_chunks('/usr/lib/example.so', 4, 128)
+        b.run.assert_not_called()
+
+    def test_regular_file_chunk_mismatch_cleans_ram(self):
+        b = self.backend()
+        b.run = Mock(side_effect=['none /tmp_network tmpfs rw,size=1024k 0 0', '',
+                                  '4', '0'*64 + '  regular-chunk\n', ''])
+        with patch.object(jit, 'read_file', return_value=b'data'):
+            with self.assertRaisesRegex(RuntimeError, 'hash'):
+                b.read_regular_chunks('/usr/lib/example.so', 4)
+        self.assertIn('rm -f', b.run.call_args.args[0])
+
     def test_close_cleans_files_before_service_handoff_without_child_exit(self):
         b=self.backend();b.run=Mock(return_value='')
         with patch.object(jit,'read_file',side_effect=RuntimeError('GET_FILE status 0x10000006')):

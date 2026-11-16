@@ -27,6 +27,7 @@ import contextlib
 import json
 import os
 import re
+import subprocess
 import sys
 import time
 import signal
@@ -152,7 +153,7 @@ def publish(path: Path, obj: dict) -> None:
     temp = path.with_suffix(path.suffix + ".tmp")
     temp.write_text(json.dumps(obj, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     os.chmod(temp, 0o600)
-    if os.geteuid() == 0 and CLIENT_UID is not None:
+    if common.host_is_root() and CLIENT_UID is not None:
         os.chown(temp, CLIENT_UID, CLIENT_GID)
     temp.replace(path)
 
@@ -164,13 +165,25 @@ def prepare_session(path: Path) -> Path:
     if path.exists() and any(path.iterdir()):
         raise SystemExit("session directory must be new or empty; review the previous session first")
     path.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if os.name == 'nt':
+        # chmod(0700) does not remove inherited Windows ACL entries.  Session
+        # files include camera secrets and the request queue accepts commands.
+        identity = subprocess.check_output(
+            ['whoami', '/user', '/fo', 'csv', '/nh'], text=True,
+            errors='replace')
+        match = re.search(r'S-1-\d+(?:-\d+)+', identity)
+        if not match:
+            raise RuntimeError('Cannot identify the Windows user SID; session not started')
+        subprocess.run(['icacls', str(path), '/inheritance:r',
+                        '/grant:r', '*' + match.group() + ':(OI)(CI)F'],
+                       check=True, capture_output=True, text=True)
     os.chmod(path, 0o700)
-    if os.geteuid() == 0 and CLIENT_UID is not None:
+    if common.host_is_root() and CLIENT_UID is not None:
         os.chown(path, CLIENT_UID, CLIENT_GID)
     for child in (path / "requests", path / "responses"):
         child.mkdir(exist_ok=True, mode=0o700)
         os.chmod(child, 0o700)
-        if os.geteuid() == 0 and CLIENT_UID is not None:
+        if common.host_is_root() and CLIENT_UID is not None:
             os.chown(child, CLIENT_UID, CLIENT_GID)
     return path
 
@@ -385,24 +398,32 @@ def main() -> None:
     for sig in (signal.SIGINT, signal.SIGTERM):
         signal.signal(sig, lambda *_: STOP_REQUESTED.set())
 
-    CLIENT_UID = args.client_uid
-    if CLIENT_UID is None:
-        CLIENT_UID = os.getuid()
-        if CLIENT_UID == 0:
-            CLIENT_UID = int(os.environ.get("SUDO_UID", "0"))
-    CLIENT_GID = os.getgid()
-    if CLIENT_UID:
-        try:
-            import pwd
-            CLIENT_GID = pwd.getpwuid(CLIENT_UID).pw_gid
-        except (KeyError, ImportError):
-            pass
+    if os.name == 'nt':
+        if args.client_uid is not None:
+            raise SystemExit('--client-uid is a POSIX-only option')
+        # The server and client run as the same Windows user.  The request
+        # directory's Windows ACL, rather than a POSIX numeric UID, controls
+        # who may submit local queue files.
+        CLIENT_UID = CLIENT_GID = None
+    else:
+        CLIENT_UID = args.client_uid
+        if CLIENT_UID is None:
+            CLIENT_UID = os.getuid()
+            if CLIENT_UID == 0:
+                CLIENT_UID = int(os.environ.get("SUDO_UID", "0"))
+        CLIENT_GID = os.getgid()
+        if CLIENT_UID:
+            try:
+                import pwd
+                CLIENT_GID = pwd.getpwuid(CLIENT_UID).pw_gid
+            except (KeyError, ImportError):
+                pass
 
     session = prepare_session(args.session_dir)
     pointer = common.ROOT / "session" / "latest.txt"
     pointer.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     pointer.write_text(str(session) + "\n", encoding="utf-8")
-    if os.geteuid() == 0 and CLIENT_UID is not None:
+    if common.host_is_root() and CLIENT_UID is not None:
         os.chown(pointer, CLIENT_UID, CLIENT_GID)
 
     try:
@@ -413,13 +434,13 @@ def main() -> None:
                 print("MODE: " + ("read-write (owner-authorized)" if
                                   args.owner_authorized_write else "read-only"),
                       flush=True)
-                print("Client: .venv/bin/python host/zve10_terminal_client.py",
+                print("Client: run host/zve10_terminal_client.py with the same Python environment",
                       flush=True)
                 serve(session, args.owner_authorized_write,
                       args.allow_module_swap, args.driver, args.backend, args.firmware,
                       args.owner_authorized_exec)
     finally:
-        if os.geteuid() == 0 and CLIENT_UID is not None:
+        if common.host_is_root() and CLIENT_UID is not None:
             common.restore_owner(pointer)
 
 

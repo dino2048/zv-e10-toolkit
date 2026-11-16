@@ -1,6 +1,6 @@
-[**English**](README.md) | [简体中文](README.zh-CN.md)
-
 # BootROM helper
+
+**English** | [简体中文](README.zh-CN.md)
 
 `read_page.S` / `read_page.elf` — a 460-byte relocation-free ARM EABI
 executable used by `host/zve10_bootrom_dump.py`.

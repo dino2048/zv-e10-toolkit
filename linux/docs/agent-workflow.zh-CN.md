@@ -38,7 +38,7 @@ busybox cat /proc/self/status
 | GET_FILE 读取 /proc 返回空 | 改用 shell cat，不据此判断权限或进程存活 |
 | 共享 tmpfs 空间不足 | 停止增大分块；不改用 eMMC 目录，不绕过容量检查 |
 | USB 超时、短读、哈希不同、写入状态不明 | 停止后续修改，保留响应/状态/部分数据，不盲目重试 |
-| 线插着但系统没有 USB 设备 | macOS 可用 `ioreg -p IOUSB -w 0` 核对枚举；必要时请机主拔插一次。不能据此认定 RAM shell 已死 |
+| 线插着但系统没有 USB 设备 | macOS 可用 `ioreg -p IOUSB -w 0` 核对枚举，Windows 可用 `Get-PnpDevice -PresentOnly` 并按 `VID_054C` 过滤；必要时请机主拔插一次。不能据此认定 RAM shell 已死 |
 
 预期内的只读诊断失败应在事务前检查；研究工具可返回可审阅的失败结果，而不把它变成整个服务退出。正式服务端遇结构化处理异常可能会按保护策略退出，不得宣传“任何错误都保活”。也不能用 catch-all 吞掉异常并强行标为 ready，特别是写入、USB 状态或清理不确定时。
 

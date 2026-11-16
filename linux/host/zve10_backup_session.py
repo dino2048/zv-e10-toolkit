@@ -8,6 +8,13 @@ import zve10_backup_raw as raw
 import zve10_common as common
 from zve10_jiritsu import BackupCancelled
 
+
+def write_sums(folder, reads):
+    """Write SHA256SUMS with LF endings so sha256sum -c works on every host."""
+    text = ''.join('%s  %s\n' % (row['sha256'], row['file']) for row in reads)
+    (Path(folder) / 'SHA256SUMS').write_text(text, newline='\n')
+
+
 def dispatch(camera, request, session, write_mode):
     backend = getattr(camera, '_jiritsu_backend', None)
     if backend is None:
@@ -47,7 +54,7 @@ def dispatch(camera, request, session, write_mode):
                         'differing_1MiB_chunks': [i for i,(x,y) in enumerate(zip(a['chunk_sha256_1MiB'],b['chunk_sha256_1MiB'])) if x != y]}
                     if name != 'nflasha' and a['sha256'] != b['sha256']:
                         raise RuntimeError('Boot-area double read mismatch')
-        (folder/'SHA256SUMS').write_text(''.join('%s  %s\n' % (r['sha256'], r['file']) for r in raw.RESULT['reads']))
+        write_sums(folder, raw.RESULT['reads'])
         raw.RESULT['completed'] = True
     except BackupCancelled:
         raw.RESULT['cancelled'] = True

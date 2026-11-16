@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'host'))
 import zve10_backup_properties as backup
 import zve10_terminal_server as server
 import zve10_terminal_client as client
+HOST_UID = os.getuid() if hasattr(os, 'getuid') else None
 
 
 class Camera:
@@ -36,7 +37,8 @@ class Tests(unittest.TestCase):
             answer = backup.dispatch(camera, req, folder, True)
             self.assertTrue(answer['match']); self.assertEqual(camera.saves, [0xA5])
             self.assertEqual(json.loads((folder/answer['snapshot']).read_text())['original'], '09')
-            self.assertEqual((folder/answer['snapshot']).stat().st_mode & 0o777, 0o600)
+            if os.name != 'nt':
+                self.assertEqual((folder/answer['snapshot']).stat().st_mode & 0o777, 0o600)
             self.assertEqual(backup.dispatch(camera, {'action':'backup-read','id':'0xA5000B'}, folder, False)['value'], '02')
 
     def test_readback_failure_and_snapshot_failure(self):
@@ -64,7 +66,7 @@ class Tests(unittest.TestCase):
                 req = {'action': 'backup-write' if error else 'backup-read', 'id':'0xA5000B', 'expected':'08', 'value':'02'}
                 (folder/'requests'/('0'*32+'.json')).write_text(json.dumps(req))
                 (folder/'requests'/('1'*32+'.json')).write_text('{"action":"close"}')
-                with patch.object(server.common,'connect',side_effect=lambda cb,driver:cb(camera)), patch.object(server.common,'check_version'), patch.object(server.common,'drain'), patch.object(server,'CLIENT_UID',os.getuid()), patch.object(server,'REQUEST_HANDLER',None):
+                with patch.object(server.common,'connect',side_effect=lambda cb,driver:cb(camera)), patch.object(server.common,'check_version'), patch.object(server.common,'drain'), patch.object(server,'CLIENT_UID',HOST_UID), patch.object(server,'REQUEST_HANDLER',None):
                     if error:
                         with self.assertRaises(ValueError): server.serve(folder, True, False, 'libusb')
                     else: server.serve(folder, False, False, 'libusb')
@@ -83,7 +85,7 @@ class Tests(unittest.TestCase):
             (folder/'requests'/('0'*32+'.json')).write_text('{"action":"custom"}')
             (folder/'requests'/('1'*32+'.json')).write_text('{"action":"close"}')
             camera=Camera()
-            with patch.object(server.common,'connect',side_effect=lambda cb,driver:cb(camera)), patch.object(server.common,'check_version'), patch.object(server.common,'drain'), patch.object(server,'CLIENT_UID',os.getuid()), patch.object(server,'REQUEST_HANDLER',return_value={'ok':True}) as handler:
+            with patch.object(server.common,'connect',side_effect=lambda cb,driver:cb(camera)), patch.object(server.common,'check_version'), patch.object(server.common,'drain'), patch.object(server,'CLIENT_UID',HOST_UID), patch.object(server,'REQUEST_HANDLER',return_value={'ok':True}) as handler:
                 server.serve(folder, False, False, 'libusb')
                 self.assertIs(handler.call_args.args[0], camera)
                 self.assertEqual(camera.terminal,[True,False])
@@ -101,7 +103,7 @@ class Tests(unittest.TestCase):
                 (folder/'requests'/('1'*32+'.json')).write_text('{"action":"close"}')
             with patch.object(server.common,'connect',side_effect=lambda cb,driver:cb(camera)), \
                     patch.object(server.common,'check_version'), patch.object(server.common,'drain'), \
-                    patch.object(server,'CLIENT_UID',os.getuid()), patch.object(server,'REQUEST_HANDLER',action), \
+                    patch.object(server,'CLIENT_UID',HOST_UID), patch.object(server,'REQUEST_HANDLER',action), \
                     patch.object(server.time,'monotonic',side_effect=lambda:clock[0]), \
                     patch.object(server.time,'sleep',side_effect=wait):
                 server.serve(folder,False,False,'libusb')

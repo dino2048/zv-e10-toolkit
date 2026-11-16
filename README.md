@@ -1,9 +1,5 @@
 # Sony ZV-E10 service-interface and BootROM tools
 
-AI agents: read [AGENTS.md](AGENTS.md) and the [session workflow](linux/docs/agent-workflow.md) before connecting.
-
-[2.03 Jiritsu: complete user+B0/B1 single pass verified; dedicated RAM-buffer experiment averaged 1.989 MiB/s. Public CLI defaults and validation scope are documented here.](linux/docs/jiritsu.md)
-
 **English** | [简体中文](README.zh-CN.md)
 
 This repository provides two sets of tools for the Sony ZV-E10.
@@ -59,11 +55,15 @@ See [development and validation](CONTRIBUTING.md) for building and testing.
 
 ## Current scope
 
-- Hardware records cover known ZV-E10 2.02 and 2.03 on macOS; see the Jiritsu guide for per-backend scope and limitations.
-- Fastboot partition reads, writes, sparse images, readback and partition recovery have hardware validation records. The approximately four-minute automatic reset no longer interrupts fastboot sessions; fastboot remains available until reboot or power-off, so large partition operations can run in one session.
+- The USB service route supports macOS and ZV-E10 system 2.03 on Windows. See the [service guide](linux/README.md) for setup and backup, and [compatibility and validation](linux/docs/validation.md) for platform and firmware coverage.
+- Fastboot provides partition reads, raw/sparse writes, readback and recovery, and keeps the connection available until reboot or power-off.
 - The recovery script supports 16 user partitions; it does not handle boot0/boot1, the partition table or hardware faults.
 - The Linux route reads a 24 KiB BootROM range. See [memory read documentation](fastboot/docs/exploration.md) for the permitted bare-metal `peek` ranges.
 - No Sony firmware, BootROM dumps, service key tables or device backups are included. Research history and raw evidence live outside this publication repository.
+
+## Development and automation
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for builds and tests. For AI-assisted camera operations, have the Agent read [AGENTS.md](AGENTS.md) and the [session workflow](linux/docs/agent-workflow.md).
 
 ## Sources and acknowledgements
 
@@ -72,6 +72,7 @@ See [development and validation](CONTRIBUTING.md) for building and testing.
 - [cokeenet/zve10-qemu](https://github.com/cokeenet/zve10-qemu) (MIT): UART boot protocol, partition map and hardware reference.
 - [YuuLuo/a7c2-service-preload](https://github.com/YuuLuo/a7c2-service-preload) and [leogenot/sony-a7iv-feature-research](https://github.com/leogenot/sony-a7iv-feature-research) (MIT): Jiritsu and service-mode research.
 - [xyzhangxin/sony-a6700-powerful](https://github.com/xyzhangxin/sony-a6700-powerful) (GPL-3.0): Pico/CC method reference.
+- [QAQLeonard/a7c2-tools](https://github.com/QAQLeonard/a7c2-tools) (PolyForm Noncommercial 1.0.0, not bundled): the framing behaviour of the Windows service reader in `linux/host/zve10_senser.py` was cross-checked against its published A7C2 transport notes; no code from it is included.
 - [ma1co/OpenMemories-Platform](https://github.com/ma1co/OpenMemories-Platform) (MIT): BootROM base address reference.
 - [ma1co/fwtool.py](https://github.com/ma1co/fwtool.py) (MIT) and [DavidBuchanan314/fwtool.py](https://github.com/DavidBuchanan314/fwtool.py): firmware-unpacking research; not bundled.
 

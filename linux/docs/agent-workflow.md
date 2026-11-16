@@ -38,7 +38,7 @@ A complete user+B0+B1 single pass with 4 MiB chunks took 940.956 seconds (1.989 
 | Empty GET_FILE proc/sys content | Use shell cat; do not infer permission/process loss |
 | Shared tmpfs too small | Stop increasing chunks; do not bypass checks or use flash |
 | USB timeout, short read, hash mismatch, uncertain write | Stop further mutations, preserve evidence, no blind retry |
-| Cable attached but no USB enumeration | Check host inventory once (macOS: ioreg -p IOUSB -w 0); ask for a replug if needed. The RAM shell may still exist |
+| Cable attached but no USB enumeration | Check host inventory once (macOS: ioreg -p IOUSB -w 0; Windows: Get-PnpDevice -PresentOnly, then filter InstanceId on VID_054C); ask for a replug if needed. The RAM shell may still exist |
 
 Preflight predictable read-only failures before transactions. Research diagnostics can return reviewable failures instead of aborting the entire service. The public server may fail closed on structured-handler exceptions; do not claim every error preserves USB. Never broadly swallow exceptions and force ready after uncertain USB, writes or cleanup.
 

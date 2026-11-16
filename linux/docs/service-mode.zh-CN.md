@@ -10,6 +10,7 @@
 - macOS 上需要原始 USB 访问权限；启动脚本通过 `osascript` + `launchctl asuser` 触发一次管理员弹窗。
 - Linux 上也需要原始 USB 访问权限；启动脚本优先通过 `pkexec` 提权，若 polkit 不可用则使用
   `sudo`。相机重新枚举为服务模式时，同一个提权进程会继续运行。
+- Windows 上需要给相机的两个身份（`054c:0d95`、`054c:0336`）安装 `libusb-win32` 驱动（可用 Zadig）。已验证的只读会话在普通、非管理员 PowerShell 中运行；只有打开设备报 access denied 时才需要管理员。直接运行 `host/zve10_terminal_server.py`，`.sh` 启动器仅适用于 macOS/Linux。
 - 需要 `libusb`。`zve10_common` 依次检查 `LIBUSB_PATH`、Homebrew 路径，最后回退到系统查找。
 
 ## 流程

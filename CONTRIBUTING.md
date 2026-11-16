@@ -7,6 +7,12 @@ drills, private device data and unsupported payload variants belong outside it.
 发布仓库只保留 Linux 服务接口工具、配套裸机读写程序和分区恢复工具。研究快照、
 测试图案演练、私有设备数据和非正式 payload 变体不应加入这里。
 
+## Agent entry / Agent 入口
+
+For AI-assisted camera work, read [AGENTS.md](AGENTS.md) and the [session workflow](linux/docs/agent-workflow.md) before connecting.
+
+使用 AI Agent 操作相机前，先读 [AGENTS.md](AGENTS.md) 和[会话操作规范](linux/docs/agent-workflow.zh-CN.md)。
+
 ## Offline checks / 离线检查
 
 From the repository root, with Python 3.10+, make and clang:

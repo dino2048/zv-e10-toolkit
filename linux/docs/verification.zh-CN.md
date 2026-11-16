@@ -1,6 +1,23 @@
 # 校验
 
+**简体中文** | [English](verification.md)
+
 所有校验都是离线的，不连接相机。
+
+## Windows
+
+在 `linux/` 目录的 PowerShell 中，把 `$backupDir` 换成备份动作返回的 `backup_dir`：
+
+```powershell
+$python = '.\.venv\Scripts\python.exe'
+$backupDir = 'session\backup-01\raw-backup-<时间戳>'
+& $python -B .\host\zve10_verify.py manifest --manifest (Join-Path $backupDir 'manifest.json')
+& $python -B .\host\zve10_verify.py sums --sums (Join-Path $backupDir 'SHA256SUMS')
+$manifest = Get-Content -Raw (Join-Path $backupDir 'manifest.json') | ConvertFrom-Json
+$manifest.comparisons | ConvertTo-Json -Depth 5
+```
+
+两条校验命令都应通过。双遍备份还要逐区审阅 `identical` 和 `differing_1MiB_chunks`。运行中可写数据有差异时保留两份文件，查清后再用于恢复；读取完成本身不代表两遍相同。
 
 ## manifest
 

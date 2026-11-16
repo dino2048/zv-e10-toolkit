@@ -1,6 +1,6 @@
-[English](README.md) | **简体中文**
-
 # BootROM 助手
+
+**简体中文** | [English](README.md)
 
 `read_page.S` / `read_page.elf` —— 一个 460 字节、无重定位的 ARM EABI
 可执行文件，供 `host/zve10_bootrom_dump.py` 使用。

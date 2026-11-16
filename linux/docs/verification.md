@@ -1,6 +1,23 @@
 # Verification
 
+**English** | [简体中文](verification.zh-CN.md)
+
 All checks are offline; they never connect to the camera.
+
+## Windows
+
+From `linux/` in PowerShell, set `$backupDir` to the `backup_dir` returned by the backup action:
+
+```powershell
+$python = '.\.venv\Scripts\python.exe'
+$backupDir = 'session\backup-01\raw-backup-<timestamp>'
+& $python -B .\host\zve10_verify.py manifest --manifest (Join-Path $backupDir 'manifest.json')
+& $python -B .\host\zve10_verify.py sums --sums (Join-Path $backupDir 'SHA256SUMS')
+$manifest = Get-Content -Raw (Join-Path $backupDir 'manifest.json') | ConvertFrom-Json
+$manifest.comparisons | ConvertTo-Json -Depth 5
+```
+
+Both verifier commands must pass. For a two-pass backup, review each region's `identical` and `differing_1MiB_chunks` fields. Keep both files and investigate differences in live writable data before using the backup for restoration. A completed read alone is not an equality check.
 
 ## Manifest
 

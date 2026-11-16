@@ -14,6 +14,11 @@ Sony-PMCA-RE.
 - Linux: raw USB access, granted by the launchers through `pkexec`, or through
   `sudo` when polkit is unavailable. The same privileged process remains active
   while the camera re-enumerates in service mode.
+- Windows: a `libusb-win32` driver for both camera identities (`054c:0d95` and
+  `054c:0336`), installed with Zadig. The validated read-only session ran in a
+  normal, non-elevated PowerShell; use an elevated one only if opening the
+  device reports access denied. Run `host/zve10_terminal_server.py` directly;
+  the `.sh` launchers are macOS/Linux-only.
 - `libusb`. `zve10_common` checks `LIBUSB_PATH`, then Homebrew's locations,
   before falling back to the system lookup.
 

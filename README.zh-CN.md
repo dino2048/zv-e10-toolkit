@@ -1,9 +1,5 @@
 # Sony ZV-E10 服务接口与 BootROM 工具
 
-AI Agent 连接前先读 [AGENTS.md](AGENTS.md) 和[会话操作规范](linux/docs/agent-workflow.zh-CN.md)。
-
-[2.03 Jiritsu 已验证完整用户区+B0/B1 单遍备份；独立 RAM 大缓冲实验平均 1.989 MiB/s，正式 CLI 默认值与验证范围见说明。](linux/docs/jiritsu.zh-CN.md)
-
 **简体中文** | [English](README.md)
 
 本仓库提供 Sony ZV-E10 的两组工具。
@@ -58,11 +54,15 @@ fastboot/                    Fastboot 工具（BootROM 注入启动）
 
 ## 当前范围
 
-- 已有实机记录覆盖 ZV-E10 的已知 2.02、2.03 版本，主机为 macOS；各后端的具体范围与限制见 Jiritsu 说明。
-- fastboot 分区读写、sparse、回读校验和恢复已有实机记录；约 4 分钟的自动复位不再中断 fastboot 会话，fastboot 会一直保持到主动重启或断电，大分区操作可一次完成。
+- USB 服务路线支持 macOS，以及 Windows 上的 ZV-E10 2.03。Windows 安装与备份见 [Linux 使用说明](linux/README.zh-CN.md)；平台与固件范围见[兼容性与验证](linux/docs/validation.zh-CN.md)。
+- fastboot 提供分区读取、raw/sparse 写入、写后校验及恢复，可保持连接直到主动重启或断电。
 - 恢复脚本支持 16 个用户分区，不处理 boot0/boot1、分区表或硬件故障。
 - Linux 路线读取的 BootROM 范围为 24 KiB；裸机 `peek` 允许的地址范围见[内存读取说明](fastboot/docs/exploration.zh-CN.md)。
 - 本仓库不包含 Sony 固件、BootROM 镜像、服务密钥表或设备备份。研究历史与原始证据保留在发布仓库之外。
+
+## 开发与自动化
+
+构建与测试见[开发说明](CONTRIBUTING.md)。使用 AI Agent 操作相机时，先让它读取 [AGENTS.md](AGENTS.md) 和[会话操作规范](linux/docs/agent-workflow.zh-CN.md)。
 
 ## 来源与致谢
 

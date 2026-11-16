@@ -3,6 +3,7 @@
 # These mirror the Sony-PMCA-RE runtime imports used by pmca.commands.usb,
 # without its build-only tools (pyinstaller).
 pyusb>=1.2.1
+libusb-package; sys_platform == "win32"
 pycryptodomex>=3.20
 asn1crypto
 AxmlParserPY==0.0.4
