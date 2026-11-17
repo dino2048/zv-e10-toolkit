@@ -20,8 +20,11 @@ class BackupCancelled(Exception):
 
 def jcmd(camera, code, data=b''):
     response = camera._sendAdjustControlPacket(0x1001, code, data)
-    if len(response) < 4 or struct.unpack_from('<I', response)[0]:
-        raise RuntimeError('Jiritsu command failed: %d' % code)
+    if len(response) < 4:
+        raise RuntimeError('Jiritsu command %d: short status reply (%d bytes)' % (code, len(response)))
+    status = struct.unpack_from('<I', response)[0]
+    if status:
+        raise RuntimeError('Jiritsu command %d failed: status 0x%08x' % (code, status))
     return response[4:]
 
 def upload_verified(camera, path, data):
@@ -53,6 +56,12 @@ class JiritsuBackend:
         if versions != [self.expected, self.expected]:
             raise RuntimeError('Two exact firmware-version reads required')
         self.status['system_version'] = self.expected.decode()
+        # SET_FILE2 mounts the workspace but cannot create its mountpoint.
+        # Use the firmware's MOUNT initialization before inspecting/uploading
+        # loader files, including on cameras never prepared by earlier tools.
+        self.status['workspace_initialized'] = False
+        jcmd(self.camera, 2, b'\x00\x00')
+        self.status['workspace_initialized'] = True
         for path in ('/tmp/jiritsu/run.sh', '/tmp/jiritsu/libJit.so', '/tmp/jiritsu/out.txt'):
             try:
                 read_file(self.camera, path, 65536)

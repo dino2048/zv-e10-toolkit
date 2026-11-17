@@ -25,6 +25,10 @@ Wait for `state.json` to say `ready`. Default command restrictions still apply. 
 
 Starting this backend **temporarily writes our 440-byte loader and script to the camera service workspace**. The loader has assembly source and a reproducible build in `helpers/jiritsu-shell/`; its hash matches the camera-tested binary. Commands/results/chunks live in a unique verified `/tmp_network` tmpfs directory. There is no boot-time installation. This is not a zero-camera-write backup method.
 
+After two exact firmware-version reads, startup sends the firmware's MOUNT command (`2`, payload `00 00`) before checking existing loader files or uploading anything. The firmware creates `/tmp/jiritsu` if needed and mounts its service workspace. Initialization failure stops startup and reports the command/status; it does not trigger an upload retry. Normal cleanup removes the uploaded files and retains the mountpoint directory, which may persist across power removal.
+
+Older toolkits omitted this initialization. On the analyzed 2.03 firmware, SET_FILE2 status `0x10000004` means its workspace mount failed before opening the destination file. A missing mountpoint is one possible cause, not a diagnosis for every camera. Preserve the full error if initialization also fails; do not format the workspace. The startup change has offline regression coverage; it has not yet been validated on the community camera reporting this failure.
+
 ## Slow raw backup
 
 In a second terminal on the same session:

@@ -1,4 +1,5 @@
 import hashlib
+import struct
 from pathlib import Path
 import sys
 import tempfile
@@ -20,15 +21,94 @@ class Tests(unittest.TestCase):
 
     def test_unknown_version_never_uploads(self):
         b = self.backend()
-        with patch.object(jit, 'read_file', return_value=b'unknown'), patch.object(jit, 'upload_verified') as upload:
-            with self.assertRaises(RuntimeError): b.start()
-            upload.assert_not_called()
+        for versions in ([b'unknown', b'unknown'], [b.expected, b'unknown'],
+                         [b'unknown', b.expected]):
+            with self.subTest(versions=versions), \
+                 patch.object(jit, 'read_file', side_effect=versions), \
+                 patch.object(jit, 'jcmd') as command, \
+                 patch.object(jit, 'upload_verified') as upload:
+                with self.assertRaises(RuntimeError): b.start()
+                command.assert_not_called()
+                upload.assert_not_called()
 
     def test_existing_workspace_never_overwritten(self):
         b = self.backend()
-        with patch.object(jit, 'read_file', side_effect=[b.expected,b.expected,b'old file']), patch.object(jit, 'upload_verified') as upload:
+        with patch.object(jit, 'read_file', side_effect=[b.expected,b.expected,b'old file']), \
+             patch.object(jit, 'jcmd') as command, patch.object(jit, 'upload_verified') as upload:
             with self.assertRaisesRegex(RuntimeError, 'Existing'): b.start()
+            command.assert_called_once_with(b.camera, 2, b'\x00\x00')
             upload.assert_not_called()
+
+    def test_workspace_initialized_before_loader_checks_and_uploads(self):
+        # Model a first-use camera: loader reads/uploads fail until MOUNT.
+        for firmware in jit.FIRMWARES:
+            with self.subTest(firmware=firmware), tempfile.TemporaryDirectory() as folder:
+                camera = Mock()
+                b = jit.JiritsuBackend(camera, folder, firmware)
+                events = []
+                initialized = False
+
+                def command(group, code, data):
+                    nonlocal initialized
+                    self.assertEqual(events, ['/version.txt', '/version.txt'])
+                    self.assertEqual((group, code, data), (0x1001, 2, b'\x00\x00'))
+                    events.append('MOUNT')
+                    initialized = True
+                    return bytes(4)
+
+                def read(camera, path, limit):
+                    events.append(path)
+                    if path == '/version.txt':
+                        return b.expected
+                    self.assertTrue(initialized)
+                    if path == b.ram + '/ready':
+                        return b'Uid:\t0\t0\t0\t0\n'
+                    raise RuntimeError('GET_FILE status 0x10000006')
+
+                def upload(camera, path, data):
+                    self.assertTrue(initialized)
+                    events.append('upload:' + path)
+
+                camera._sendAdjustControlPacket.side_effect = command
+                with patch.object(jit, 'read_file', side_effect=read), \
+                     patch.object(jit, 'upload_verified', side_effect=upload), \
+                     patch.object(common, 'restore_owner'):
+                    b.start()
+                self.assertEqual(events[3:6], ['/tmp/jiritsu/run.sh', '/tmp/jiritsu/libJit.so',
+                                               '/tmp/jiritsu/out.txt'])
+                self.assertEqual(events[6:8], ['upload:/tmp/jiritsu/run.sh',
+                                               'upload:/tmp/jiritsu/libJit.so'])
+                self.assertTrue(b.started)
+                self.assertTrue(b.status['workspace_initialized'])
+
+    def test_initialization_failure_stops_before_loader_checks_or_uploads(self):
+        for response in (struct.pack('<I', 0x10000004), struct.pack('<I', 0x1000000d), b'\x00'):
+            with self.subTest(response=response), tempfile.TemporaryDirectory() as folder:
+                b = jit.JiritsuBackend(Mock(), folder, '2.03')
+                b.camera._sendAdjustControlPacket.return_value = response
+                with patch.object(jit, 'read_file', return_value=b.expected) as read, \
+                     patch.object(jit, 'upload_verified') as upload:
+                    with self.assertRaises(RuntimeError): b.start()
+                    self.assertEqual(read.call_count, 2)
+                    upload.assert_not_called()
+                b.camera._sendAdjustControlPacket.assert_called_once_with(0x1001, 2, b'\x00\x00')
+                self.assertFalse(b.status['workspace_initialized'])
+                self.assertFalse(b.started)
+                self.assertFalse(b.status['requires_power_cycle'])
+                self.assertEqual(list(Path(folder).iterdir()), [])
+
+    def test_jcmd_reports_full_status_and_rejects_short_reply(self):
+        camera = Mock()
+        for code in (2, 16):
+            camera._sendAdjustControlPacket.return_value = struct.pack('<I', 0x10000004)
+            with self.assertRaisesRegex(RuntimeError, 'command %d failed: status 0x10000004' % code):
+                jit.jcmd(camera, code)
+        for length in range(4):
+            camera._sendAdjustControlPacket.return_value = bytes(length)
+            with self.assertRaisesRegex(RuntimeError, 'short status reply'):
+                jit.jcmd(camera, 2)
+        camera._sendAdjustControlPacket.return_value = bytes(4) + b'result'
+        self.assertEqual(jit.jcmd(camera, 2), b'result')
 
     def test_original_payload_is_pinned(self):
         data = (common.ROOT/'helpers/jiritsu-shell/launch.so').read_bytes()
