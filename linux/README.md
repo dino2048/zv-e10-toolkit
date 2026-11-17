@@ -56,6 +56,8 @@ If PyUSB cannot find `libusb0.dll`, set `LIBUSB0_PATH` in the server's PowerShel
 
 ## Windows 2.03 backup
 
+Use `--request-file` for Windows structured actions, including commands or paths containing spaces. Save a single JSON object with `ConvertTo-Json -Depth 8 | Set-Content -Encoding UTF8`; UTF-8 files with or without a BOM are accepted. Do not pass both `--request-file` and `--request-json`. The file is parsed before any session request is submitted; server write authorization and confirmation checks still apply. Keep request files inside the ignored `session/` directory.
+
 From `linux/` in PowerShell, start a read-only session:
 
 ```powershell
@@ -67,15 +69,17 @@ The temporary loader provides read access and requires power removal after closi
 
 ```powershell
 $python = ".\.venv\Scripts\python.exe"
-$request = '{\"action\":\"raw-backup\",\"passes\":2,\"chunk_kib\":4096}'
-& $python -B .\host\zve10_terminal_client.py --session-dir session\backup-01 --timeout 7200 --request-json $request
+$requestFile = 'session/request.json'
+@{ action = 'raw-backup'; passes = 2; chunk_kib = 4096 } | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $requestFile -Encoding UTF8
+& $python -B .\host\zve10_terminal_client.py --session-dir session\backup-01 --timeout 7200 --request-file $requestFile
 ```
 
 Allow at least 5 GiB free space and [verify the saved files and both passes](docs/verification.md) in the returned backup directory. Finish with `close`, wait for `state=closed`, `service_returned=true` and `loader_files_removed=true`, then switch off, unplug USB and remove the battery for about 30 seconds:
 
 ```powershell
-$request = '{\"action\":\"close\"}'
-& $python -B .\host\zve10_terminal_client.py --session-dir session\backup-01 --request-json $request
+$requestFile = 'session/request.json'
+@{ action = 'close' } | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $requestFile -Encoding UTF8
+& $python -B .\host\zve10_terminal_client.py --session-dir session\backup-01 --request-file $requestFile
 ```
 
 ## macOS quick start

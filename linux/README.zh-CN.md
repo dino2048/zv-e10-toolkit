@@ -54,6 +54,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\setup-windows.ps1
 
 ## Windows 2.03 备份
 
+Windows 结构化动作统一使用 `--request-file`，包括含空格的命令或路径。用 `ConvertTo-Json -Depth 8 | Set-Content -Encoding UTF8` 保存一个 JSON 对象；支持有、无 BOM 的 UTF-8 文件。`--request-file` 与 `--request-json` 不能同时使用。文件解析成功后才提交会话请求；服务端写入授权和确认检查保持不变。请求文件放在忽略的 `session/` 内。
+
 在 `linux/` 目录的 PowerShell 中启动只读会话：
 
 ```powershell
@@ -65,15 +67,17 @@ $python = ".\.venv\Scripts\python.exe"
 
 ```powershell
 $python = ".\.venv\Scripts\python.exe"
-$request = '{\"action\":\"raw-backup\",\"passes\":2,\"chunk_kib\":4096}'
-& $python -B .\host\zve10_terminal_client.py --session-dir session\backup-01 --timeout 7200 --request-json $request
+$requestFile = 'session/request.json'
+@{ action = 'raw-backup'; passes = 2; chunk_kib = 4096 } | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $requestFile -Encoding UTF8
+& $python -B .\host\zve10_terminal_client.py --session-dir session\backup-01 --timeout 7200 --request-file $requestFile
 ```
 
 至少预留 5 GiB 空间，按[校验说明](docs/verification.zh-CN.md)校验返回目录中的文件与两遍结果。结束时发送 `close`，等 `state=closed`、`service_returned=true`、`loader_files_removed=true`，再关机、拔 USB、取电池约 30 秒：
 
 ```powershell
-$request = '{\"action\":\"close\"}'
-& $python -B .\host\zve10_terminal_client.py --session-dir session\backup-01 --request-json $request
+$requestFile = 'session/request.json'
+@{ action = 'close' } | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $requestFile -Encoding UTF8
+& $python -B .\host\zve10_terminal_client.py --session-dir session\backup-01 --request-file $requestFile
 ```
 
 ## macOS 快速开始

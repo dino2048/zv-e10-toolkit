@@ -42,7 +42,21 @@ def read_state(session: Path) -> dict:
         return {}
 
 
+def load_request(request_json=None, request_file=None) -> dict:
+    """Read one JSON object; utf-8-sig also accepts PowerShell 5 UTF-8 files."""
+    if (request_json is None) == (request_file is None):
+        raise ValueError('Choose exactly one JSON request or --request-file')
+    text = (Path(request_file).read_text(encoding='utf-8-sig')
+            if request_file is not None else request_json)
+    payload = json.loads(text)
+    if not isinstance(payload, dict):
+        raise ValueError('Request must be a JSON object')
+    return payload
+
+
 def submit(session: Path, payload: dict, timeout: float = 45.0) -> dict:
+    if not isinstance(payload, dict):
+        raise ValueError('Request must be a JSON object')
     name = uuid.uuid4().hex + ".json"
     temp = session / "requests" / ("." + name + ".tmp")
     temp.write_text(json.dumps(payload) + "\n", encoding="utf-8")
@@ -63,11 +77,19 @@ def submit(session: Path, payload: dict, timeout: float = 45.0) -> dict:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--session-dir", help="session directory (default: session/latest.txt)")
-    parser.add_argument("--request-json", help="submit one structured action and exit")
+    requests = parser.add_mutually_exclusive_group()
+    requests.add_argument("--request-json", help="submit one structured action and exit")
+    requests.add_argument('--request-file', type=Path, help='read one UTF-8 JSON request file')
     parser.add_argument("--timeout", type=float, default=45.0)
-    parser.add_argument('--cancel-backup', action='store_true',
+    requests.add_argument('--cancel-backup', action='store_true',
                         help='request cancellation at the next data-block boundary')
     args = parser.parse_args()
+    payload = None
+    if args.request_json is not None or args.request_file is not None:
+        try:
+            payload = load_request(args.request_json, args.request_file)
+        except (OSError, ValueError) as exc:
+            parser.error('Invalid request: ' + str(exc))
     session = resolve(args.session_dir)
     if args.cancel_backup:
         state = read_state(session)
@@ -90,8 +112,8 @@ def main() -> None:
     else:
         raise SystemExit("session was not ready within 60 seconds")
 
-    if args.request_json:
-        result = submit(session, json.loads(args.request_json), timeout=args.timeout)
+    if payload is not None:
+        result = submit(session, payload, timeout=args.timeout)
         print(json.dumps(result, ensure_ascii=False, indent=2))
         if "error" in result or "refused" in result:
             raise SystemExit(1)

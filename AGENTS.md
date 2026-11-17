@@ -16,6 +16,8 @@ Read README.md and [the session workflow](linux/docs/agent-workflow.md) ([中文
 
 ## Windows hosts
 
+- Use client --request-file for structured requests on Windows, especially commands, paths and confirmation text with spaces. Save a UTF-8 JSON object with ConvertTo-Json and Set-Content -Encoding UTF8. Inline JSON escaping in PowerShell 5.1 is not reliable for these values. Request-file input does not grant write authorization or supply owner consent.
+
 - `linux/scripts/setup-windows.ps1` creates `.venv/Scripts/python.exe`, installs the pinned dependencies and Sony-PMCA-RE, and runs the server self-test. Add `-Proxy <url>` when downloads need a proxy (pip ignores `HTTP_PROXY`/`HTTPS_PROXY`); if pip reports an SSL error through a proxy, upgrade pip in the new environment first.
 - Service mode needs the `libusb-win32` driver (Zadig) for both camera identities. The validated read-only session ran without administrator rights; use an elevated PowerShell only if opening the device reports access denied.
 - Run `host/zve10_terminal_server.py` directly. The `.sh` launchers and `--client-uid` are macOS/Linux-only; the server sets the session directory ACL to the current user's SID.
