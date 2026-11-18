@@ -42,7 +42,7 @@ In a second terminal on the same session:
 # Optional: passes=2 for two independent full reads; use client --timeout 7200.
 ```
 
-Scope: entire Linux-visible `/dev/nflasha` (1,954,545,664 bytes, including gaps/tail) and `/dev/nflashaB0`, `/dev/nflashaB1` (4 MiB each). Each live capacity is checked. No RPMB, OTP/eFuse or hidden chip areas. This does not implement image restoration.
+Scope: the entire Linux-visible `/dev/nflasha`, including gaps/tail, and `/dev/nflashaB0`, `/dev/nflashaB1`, each at its validated live capacity. The original test unit had 1,954,545,664 user bytes and 4 MiB per boot area; these are measurements, not required sizes. See [capacity validation and diagnostics](emmc-layout.md). No RPMB, OTP/eFuse or hidden chip areas. This does not implement image restoration.
 
 The default is 512 KiB chunks. With `chunk_kib=4096`, host disk and camera memory are checked, a dedicated 8 MiB tmpfs is mounted, and it is unmounted/removed on success or cancellation. Jiritsu transfers each chunk; camera and host SHA-256 must match. Saved files are independently reread on the host. Output and metadata stay under the private session's `raw-backup-*` directory. `.part` is renamed only after exact length and saved-file verification; incomplete output is never marked complete.
 

@@ -54,6 +54,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\setup-windows.ps1
 
 ## Windows 2.03 备份
 
+备份使用每台相机核对后的用户区和启动区容量。两条备份路径及 `emmc-info` 只读诊断见[eMMC 容量差异与诊断](docs/emmc-layout.zh-CN.md)。
+
 Windows 结构化动作统一使用 `--request-file`，包括含空格的命令或路径。用 `ConvertTo-Json -Depth 8 | Set-Content -Encoding UTF8` 保存一个 JSON 对象；支持有、无 BOM 的 UTF-8 文件。`--request-file` 与 `--request-json` 不能同时使用。文件解析成功后才提交会话请求；服务端写入授权和确认检查保持不变。请求文件放在忽略的 `session/` 内。
 
 在 `linux/` 目录的 PowerShell 中启动只读会话：

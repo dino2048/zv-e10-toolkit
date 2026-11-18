@@ -141,9 +141,9 @@ class Tests(unittest.TestCase):
         b.run.assert_not_called()
 
     def test_large_chunk_requires_exclusive_tmpfs_before_dd(self):
-        b=self.backend();b.chunk_bytes=1048576;b.run=Mock(return_value='8192')
+        b=self.backend();b.chunk_bytes=1048576;b.run=Mock(return_value='122880')
         with patch.object(jit,'read_file') as read:
-            with self.assertRaisesRegex(ValueError,'dedicated tmpfs'):b.read_path('/dev/nflashaB0')
+            with self.assertRaisesRegex(ValueError,'dedicated tmpfs'):b.read_path('/dev/nflasha5')
             read.assert_not_called()
         self.assertFalse(any(' dd ' in call.args[0] for call in b.run.call_args_list))
 
@@ -228,7 +228,8 @@ class Tests(unittest.TestCase):
                 path=backup.raw.OUT/(name+'.read1.bin.part');path.write_bytes(b'partial')
                 backup.raw.RESULT['reads'].append({'file':name+'.read1.bin','complete':False})
                 raise jit.BackupCancelled()
-            with patch.object(backup.raw,'receive',side_effect=receive):
+            with patch.object(backup.raw,'receive',side_effect=receive), \
+                 patch.object(backup.emmc, 'validate', return_value=dict(nflasha=512, nflashaB0=512, nflashaB1=512)):
                 result=backup.dispatch(b.camera,{'passes':1},Path(folder),False)
             self.assertTrue(result['cancelled']);self.assertFalse(result['completed'])
             self.assertTrue(list(Path(folder).rglob('*.part')))

@@ -56,6 +56,8 @@ If PyUSB cannot find `libusb0.dll`, set `LIBUSB0_PATH` in the server's PowerShel
 
 ## Windows 2.03 backup
 
+Backups use each camera's validated user/boot capacities. See [capacity variants and read-only eMMC diagnostics](docs/emmc-layout.md) for both backup paths and the `emmc-info` action.
+
 Use `--request-file` for Windows structured actions, including commands or paths containing spaces. Save a single JSON object with `ConvertTo-Json -Depth 8 | Set-Content -Encoding UTF8`; UTF-8 files with or without a BOM are accepted. Do not pass both `--request-file` and `--request-json`. The file is parsed before any session request is submitted; server write authorization and confirmation checks still apply. Keep request files inside the ignored `session/` directory.
 
 From `linux/` in PowerShell, start a read-only session:

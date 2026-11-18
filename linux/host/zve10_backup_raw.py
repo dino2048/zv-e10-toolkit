@@ -23,18 +23,14 @@ import argparse
 import hashlib
 import json
 import os
-import re
 import shutil
 import time
 from pathlib import Path
 
 import zve10_common as common
+import zve10_emmc_layout as emmc
 
-REGIONS = {
-    "nflasha": 1954545664,
-    "nflashaB0": 4194304,
-    "nflashaB1": 4194304,
-}
+REGIONS = emmc.AREA_NAMES
 OUT = None
 RESULT = {
     "scope": (
@@ -92,7 +88,24 @@ class Sink:
 
 
 def receive(camera, device: str, iteration: int) -> dict:
-    size = REGIONS[device]
+    # Each pass must still match the geometry pinned at preflight.
+    reopen = RESULT.get('terminal_closed', False) and not hasattr(camera, '_jiritsu_backend')
+    try:
+        if reopen:
+            RESULT['terminal_closed'] = False
+            camera.setTerminalEnable(True)
+            common.drain(camera.dev, 0.5)
+        live = emmc.collect(camera)
+    finally:
+        if reopen:
+            camera.setTerminalEnable(False)
+            RESULT['terminal_closed'] = True
+            save()
+    RESULT.setdefault('geometry_checks', []).append({'device': device, 'iteration': iteration, **live})
+    save()
+    if emmc.validate(live['partitions'], live['layout']) != RESULT['regions']:
+        raise RuntimeError('eMMC geometry changed during backup')
+    size = RESULT['regions'][device]
     path = "/dev/" + device
     dest = OUT / ("%s.read%d.bin" % (device, iteration))
     partial = dest.with_suffix(".bin.part")
@@ -148,7 +161,8 @@ def receive(camera, device: str, iteration: int) -> dict:
 
 def probe(camera, expected: bytes) -> None:
     common.set_terminal_timeout(camera)
-    common.check_version(camera, expected)
+    for _ in range(2):
+        common.check_version(camera, expected)
 
     enabled = False
     try:
@@ -173,18 +187,14 @@ def probe(camera, expected: bytes) -> None:
             RESULT["terminal_closed"] = True
             save()
 
-    # Refuse to continue if the live capacities differ from the fixed scope.
-    sizes = {
-        match[3]: int(match[2]) * 1024
-        for match in re.findall(
-            r"^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\S+)\s*$",
-            RESULT["metadata"][0]["output"],
-            re.M,
-        )
-    }
-    for device, size in REGIONS.items():
-        if sizes.get(device) != size:
-            raise RuntimeError("live capacity changed for " + device)
+    metadata = {row['name']: row for row in RESULT['metadata']}
+    if any(metadata[key]['exit_code'] for key in ('partitions', 'layout')):
+        raise RuntimeError('eMMC metadata query failed')
+    RESULT['regions'] = emmc.validate(metadata['partitions']['output'], metadata['layout']['output'])
+    RESULT['capacity_source'] = 'matching Linux proc/sysfs; known logical partition layout'
+    save()
+    if shutil.disk_usage(OUT).free < 2 * sum(RESULT['regions'].values()) + 1024**3:
+        raise RuntimeError('Need actual backup capacity plus 1 GiB free host space')
 
     for device in REGIONS:
         first = receive(camera, device, 1)
@@ -200,6 +210,8 @@ def probe(camera, expected: bytes) -> None:
             ],
         }
         save()
+        if device != 'nflasha' and first['sha256'] != second['sha256']:
+            raise RuntimeError('Boot-area double read mismatch')
     RESULT["completed"] = True
     save()
 
@@ -218,7 +230,7 @@ def main() -> None:
 
     OUT = Path(args.out).resolve() if args.out else common.default_out("zve10-raw-emmc-")
     probe_dir = OUT.parent if OUT.parent.exists() else Path.cwd()
-    needed = 2 * sum(REGIONS.values()) + 1024 ** 3
+    needed = 1024 ** 3  # Actual capacity is checked after geometry discovery.
     free = shutil.disk_usage(probe_dir).free
     if free < needed:
         raise SystemExit(

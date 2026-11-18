@@ -4,7 +4,9 @@ For 2.03, use [the Jiritsu backend](jiritsu.md). The legacy terminal/FileControl
 
 ## Scope
 
-| Node | Bytes |
+The original validation unit reported these sizes; current backups use each camera's validated live capacities, not these constants. See [capacity checks and diagnostics](emmc-layout.md).
+
+| Node | Original test-unit bytes |
 |---|---:|
 | `/dev/nflasha` | 1,954,545,664 |
 | `/dev/nflashaB0` | 4,194,304 |
@@ -16,11 +18,11 @@ The two `B` nodes are boot areas. This is not a physical chip dump.
 ## Preconditions
 
 1. `/version.txt` equals `30110_05.2025031501` (`--expect-version` overrides).
-2. `/proc/partitions` reports the sizes above.
-3. At least `2 * total + 1 GiB` free space.
+2. `/proc/partitions` and sysfs agree on all device numbers and capacities; the 16 known logical partitions match the sample and fit inside the user area.
+3. At least `2 * actual total + 1 GiB` free space.
 
 The terminal is opened only to read `/proc/partitions`, `/proc/mounts`, and
-`/sys/class/block/nflasha*`, then closed.
+`/sys/class/block/nflasha*`, then closed. Before each pass it is temporarily enabled again on the same service connection to recheck geometry, then disabled before the FileControl read. No second USB connection is opened.
 
 ## Two passes
 
@@ -36,12 +38,14 @@ For each region and each pass:
    with the receive-time hash. Abort on mismatch.
 
 Both passes are kept. Differences are reported, never overwritten.
+Boot-area differences stop completion. Live user-area differences require review; `completed` does not mean every region was identical.
 
 ## Manifest
 
 `manifest.json` records:
 
 - `scope`;
+- validated actual byte counts in `regions`, plus per-pass geometry checks;
 - one row per pass: device, iteration, bytes, response, duration, whole-file
   SHA-256, per-MiB hashes, host re-read hash, completion;
 - raw `/proc/partitions`, `/proc/mounts`, and sysfs layout;

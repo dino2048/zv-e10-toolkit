@@ -8,11 +8,11 @@ import time
 import uuid
 
 import zve10_common as common
+import zve10_emmc_layout as emmc
 from zve10_read_file_jiritsu import read_file
 
 FIRMWARES = {'2.02': b'30110_05.2025031501', '2.03': b'30110_06.2026060501'}
-REGIONS = {'/dev/nflasha': 1954545664, '/dev/nflashaB0': 4194304,
-           '/dev/nflashaB1': 4194304, '/dev/nflasha5': 62914560}
+REGIONS = {'/dev/nflasha5': 62914560}  # WBI keeps its exact independent guard.
 PAYLOAD_SHA = 'c22deba2d43a6643c628a0dd5e7f524fa7b50dcc766fcee0eb37d667895c4b24'
 
 class BackupCancelled(Exception):
@@ -228,12 +228,21 @@ done
                 sink.write(data)
                 return 0, None
             return 0, data
-        if path not in REGIONS:
+        area = path.removeprefix('/dev/')
+        if path not in REGIONS and area not in emmc.AREA_NAMES:
             raise ValueError('Block reads restricted to known user/boot/WBI regions')
         chunk_bytes = self.chunk_bytes
         if type(chunk_bytes) is not int or chunk_bytes not in (524288, 655360, 786432, 1048576, 2097152, 4194304):
             raise ValueError('Unsupported chunk size')
-        name, size = path.split('/')[-1], REGIONS[path]
+        name = path.split('/')[-1]
+        if name in emmc.AREA_NAMES:
+            geometry = emmc.collect(self.camera)
+            regions = emmc.validate(geometry['partitions'], geometry['layout'])
+            if hasattr(self, 'backup_regions') and regions != self.backup_regions:
+                raise ValueError('Runtime block capacity mismatch: geometry changed')
+            size = regions[name]
+        else:
+            size = REGIONS[path]
         if sink is None and size > 64*1048576:
             raise ValueError('Large block reads require a streaming sink')
         live = self.run('cat /sys/class/block/%s/size' % name).strip()

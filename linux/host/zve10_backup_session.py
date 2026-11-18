@@ -6,6 +6,7 @@ from pathlib import Path
 
 import zve10_backup_raw as raw
 import zve10_common as common
+import zve10_emmc_layout as emmc
 from zve10_jiritsu import BackupCancelled
 
 
@@ -25,8 +26,6 @@ def dispatch(camera, request, session, write_mode):
     chunk_kib = request.get('chunk_kib', 512)
     if type(chunk_kib) is not int or chunk_kib not in (512, 1024, 2048, 4096):
         raise ValueError('chunk_kib must be 512, 1024, 2048 or 4096')
-    if shutil.disk_usage(session).free < passes * sum(raw.REGIONS.values()) + 1024**3:
-        raise ValueError('Need backup capacity plus 1 GiB free host space')
     started = time.monotonic()
     folder = Path(session) / (time.strftime('raw-backup-%Y%m%d-%H%M%S') + '-' + uuid.uuid4().hex[:8])
     folder.mkdir(mode=0o700)
@@ -45,6 +44,13 @@ def dispatch(camera, request, session, write_mode):
             raw.RESULT['mounts'] = backend.run('cat /proc/mounts')
             raw.RESULT['layout'] = backend.run('for p in /sys/class/block/nflasha*; do echo DEVICE:$p; for f in dev size start ro; do echo FIELD:$f; cat "$p/$f" 2>/dev/null; done; done')
             raw.save()
+            regions = emmc.validate(raw.RESULT['partitions'], raw.RESULT['layout'])
+            raw.RESULT['regions'] = regions
+            raw.RESULT['capacity_source'] = 'matching Linux proc/sysfs; known logical partition layout'
+            raw.save()
+            if shutil.disk_usage(session).free < passes * sum(regions.values()) + 1024**3:
+                raise ValueError('Need actual backup capacity plus 1 GiB free host space')
+            backend.backup_regions = regions.copy()
             for name in raw.REGIONS:
                 rows = [raw.receive(camera, name, i) for i in range(1, passes+1)]
                 if passes == 2:
@@ -66,6 +72,8 @@ def dispatch(camera, request, session, write_mode):
         raw.RESULT['seconds'] = time.monotonic() - started
         raw.RESULT['cleanup'] = dict(backend.status)
         backend.cancellable = False
+        if hasattr(backend, 'backup_regions'):
+            del backend.backup_regions
         for row in raw.RESULT['reads']:
             if not row['complete']:
                 row['partial_file'] = row['file'] + '.part'

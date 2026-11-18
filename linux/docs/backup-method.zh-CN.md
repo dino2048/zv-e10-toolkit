@@ -4,7 +4,9 @@
 
 ## 范围
 
-| 节点 | 字节数 |
+下表是原验证机的实测值；当前备份使用每台相机核对后的实际容量，不要求固定为这些数值。见[容量核对与诊断](emmc-layout.zh-CN.md)。
+
+| 节点 | 原测试机字节数 |
 |---|---:|
 | `/dev/nflasha` | 1,954,545,664 |
 | `/dev/nflashaB0` | 4,194,304 |
@@ -15,10 +17,10 @@
 ## 前置条件
 
 1. `/version.txt` 等于 `30110_05.2025031501`（可用 `--expect-version` 覆盖）。
-2. `/proc/partitions` 报告上述容量。
-3. 至少 `2 × 总量 + 1 GiB` 空闲空间。
+2. `/proc/partitions` 和 sysfs 的设备号与容量一致；16 个已知逻辑分区与样表相同，且位于用户区内。
+3. 至少 `2 × 实际总量 + 1 GiB` 空闲空间。
 
-终端只用于读取 `/proc/partitions`、`/proc/mounts` 和 `/sys/class/block/nflasha*`，随后关闭。
+终端只用于读取 `/proc/partitions`、`/proc/mounts` 和 `/sys/class/block/nflasha*`，随后关闭。每遍读取前，在同一服务连接内再次临时启用终端核对布局，再关闭终端进行 FileControl 读取，不另开 USB 连接。
 
 ## 双遍读取
 
@@ -32,12 +34,14 @@
 6. 重新打开文件，从主机磁盘独立重读，与接收时哈希比较；不一致立即中止。
 
 两遍结果都保留，差异如实报告，不覆盖。
+启动区两遍不同会阻止完成；运行中的用户区差异须审阅，`completed` 不等于所有区域两遍完全相同。
 
 ## manifest
 
 `manifest.json` 记录：
 
 - `scope`；
+- `regions` 中确认的实际字节数，以及每遍的布局核对记录；
 - 每遍一行：设备、遍次、字节数、响应、耗时、整文件 SHA-256、每 MiB 哈希、主机重读哈希、完成标志；
 - 原始 `/proc/partitions`、`/proc/mounts`、sysfs 布局；
 - 每个设备的对比结果，以及不同的 1 MiB 块；

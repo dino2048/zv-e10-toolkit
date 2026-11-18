@@ -26,6 +26,8 @@ Read README.md and [the session workflow](linux/docs/agent-workflow.md) ([中文
 
 ## RAM, backup and errors
 
+- Raw backups discover user/B0/B1 capacities from matching proc/sysfs metadata and retain the known 16-partition layout guard. Do not replace this with fixed test-unit sizes, pad boot images, truncate the user tail, or accept conflicting geometry. The original 1864 MiB / 4 MiB values are evidence, not universal requirements. WBI capacity/write and restore guards remain independent. Use emmc-info on one ready session for optional sysfs identity; keep CID private and do not install helpers or write chip configuration to identify a device.
+
 - Confirm mounts, not names. On the tested device /tmp_network is tmpfs limited to 1 MiB; /tmp is eMMC-backed. A full 1 MiB data chunk cannot coexist with command/result files in the original mount. Do not put backup chunks in flash directories or change shared mount limits.
 - The public backup CLI defaults to 512 KiB. Larger chunks require an independently verified, dedicated tmpfs with checked capacity/content and sufficient free/reclaimable memory. A separately mounted 8 MiB tmpfs with 4 MiB chunks completed one full 2.03 backup in 940.956 seconds (1.989 MiB/s). The public raw-backup action now accepts chunk_kib=4096 and manages this lifecycle automatically. The default remains 512 KiB. Use the documented action rather than reconstructing a research launcher.
 - Prefer existing structured actions and fixed commands. Preflight known limitations before starting a transaction. A refused/unsupported diagnostic is not by itself USB failure. Review response and state before reconnecting. The server may fail closed on a structured handler exception; do not claim every error preserves its connection.

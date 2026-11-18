@@ -280,6 +280,9 @@ def serve(session: Path, write_mode: bool, allow_module_ops: bool,
                     if action == 'raw-backup':
                         from zve10_backup_session import dispatch
                         handler = dispatch
+                    if action == 'emmc-info':
+                        from zve10_emmc_layout import dispatch
+                        handler = dispatch
                     if handler is None and action in ("backup-read", "backup-write"):
                         from zve10_backup_properties import dispatch
                         handler = dispatch
